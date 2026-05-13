@@ -1,0 +1,13 @@
+target/
+!.mvn/wrapper/maven-wrapper.jar
+.idea/
+.git/
+*.iml
+.env
+.env.example
+docker-compose.yml
+Dockerfile
+README.md
+app.py
+mvnw
+mvnw.cmd
