@@ -83,9 +83,9 @@ public class TournamentService {
             return ValidationUtils.badRequest("User role not found");
         }
         String role = organizer.getRole().trim().toUpperCase();
-        if (!role.equals(Constants.ROLE_ADMIN)) {
-            return ValidationUtils.badRequest("Only admin can create a tournament");
-        }
+//        if (!role.equals(Constants.ROLE_ADMIN)) {
+//            return ValidationUtils.badRequest("Only admin can create a tournament");
+//        }
 
 
         tournament1.setOrganizer(organizer);

@@ -57,6 +57,7 @@ public class StatsService {
         s.setEconomy(0.0);
         s.setBowlingAverage(0.0);
         s.setBowlingStrikeRate(0.0);
+        s.setBestBowling("0/0"); // ✅ new field
         s.setGoals(0);
         s.setAssists(0);
         s.setFouls(0);
@@ -112,7 +113,24 @@ public class StatsService {
         checkAndHandleTournamentEnd(match.getTournament());
     }
 
+    // ==================== BULK RECALCULATION ====================
+
+    /**
+     * Recalculate ALL Stats rows from raw CricketBall data.
+     * Iterates every Stats entry in the database and re-runs
+     * recalculatePlayerStats for each player+tournament pair.
+     */
+    @Transactional
+    public void recalculateAllPlayerStats() {
+        List<Stats> allStats = statsInterface.findAll();
+        for (Stats s : allStats) {
+            if (s.getPlayer() == null || s.getTournament() == null) continue;
+            recalculatePlayerStats(s.getPlayer().getId(), s.getTournament().getId());
+        }
+    }
+
     // ==================== FULL RECALCULATION ====================
+
 
     /**
      * Wipes & rewrites a player's tournament stats from scratch using
@@ -252,6 +270,11 @@ public class StatsService {
 
             if (inningsWickets >= 5)      fiveWicketHauls++;
             else if (inningsWickets >= 3) threeWicketHauls++;
+
+            // Track best bowling in tournament (per innings)
+            String currentBest = stats.getBestBowling() != null ? stats.getBestBowling() : "0/0";
+            String inningsPerf = inningsWickets + "/" + totalRunsConcededInInnings(inningsBalls);
+            stats.setBestBowling(compareBestBowling(currentBest, inningsPerf));
         }
 
         // Economy = runs conceded / overs bowled
@@ -618,22 +641,23 @@ public class StatsService {
         dto.setPomCount(awardInterface.countPomByPlayerIdAndSport(playerId, sport));
 
         // ── Cricket stats ─────────────────────────────────────────────
-        dto.setTotalRuns(safeInt(s.getRuns()));
+        dto.setRunsScored(safeInt(s.getRuns()));
         dto.setBallsFaced(safeInt(s.getBallsFaced()));
-        dto.setStrikeRate(s.getStrikeRate() != null ? s.getStrikeRate() : 0);
-        dto.setBattingAvg(s.getBattingAverage() != null ? s.getBattingAverage() : 0.0);
-        dto.setHighest(safeInt(s.getHighest()));
+        dto.setStrikeRate(s.getStrikeRate() != null ? s.getStrikeRate() : 0.0);
+        dto.setAverage(s.getBattingAverage() != null ? s.getBattingAverage() : 0.0);
+        dto.setHighestScore(safeInt(s.getHighest()));
         dto.setFours(safeInt(s.getFours()));
         dto.setSixes(safeInt(s.getSixes()));
         dto.setNotOuts(safeInt(s.getNotOut()));
         dto.setFifties(safeInt(s.getFifties()));
         dto.setHundreds(safeInt(s.getHundreds()));
-        dto.setWickets(safeInt(s.getWickets()));
+        dto.setWicketsTaken(safeInt(s.getWickets()));
         dto.setBallsBowled(safeInt(s.getBallsBowled()));
         dto.setRunsConceded(safeInt(s.getRunsConceded()));
         dto.setEconomy(s.getEconomy() != null ? s.getEconomy() : 0.0);
         dto.setBowlingAverage(s.getBowlingAverage() != null ? s.getBowlingAverage() : 0.0);
         dto.setBowlingStrikeRate(s.getBowlingStrikeRate() != null ? s.getBowlingStrikeRate() : 0.0);
+        dto.setBestBowling(s.getBestBowling() != null ? s.getBestBowling() : "0/0");
         dto.setMaidens(safeInt(s.getMaidens()));
         dto.setDotBalls(safeInt(s.getDotBalls()));
         dto.setThreeWicketHauls(safeInt(s.getThreeWicketHauls()));
@@ -720,6 +744,7 @@ public class StatsService {
             agg.setFouls(safe(agg.getFouls())      + safe(s.getFouls()));
             agg.setYellowCards(safe(agg.getYellowCards()) + safe(s.getYellowCards()));
             agg.setRedCards(safe(agg.getRedCards())+ safe(s.getRedCards()));
+            agg.setBestBowling(compareBestBowling(agg.getBestBowling(), s.getBestBowling()));
         }
 
         // Recalculate derived stats
@@ -776,22 +801,23 @@ public class StatsService {
         dto.setPomCount(pomCount);
 
         // Cricket fields
-        dto.setTotalRuns(safeInt(s.getRuns()));
+        dto.setRunsScored(safeInt(s.getRuns()));
         dto.setBallsFaced(safeInt(s.getBallsFaced()));
         dto.setStrikeRate(s.getStrikeRate() != null ? s.getStrikeRate() : 0);
-        dto.setBattingAvg(s.getBattingAverage() != null ? s.getBattingAverage() : 0.0);
-        dto.setHighest(safeInt(s.getHighest()));
+        dto.setAverage(s.getBattingAverage() != null ? s.getBattingAverage() : 0.0);
+        dto.setHighestScore(safeInt(s.getHighest()));
         dto.setFours(safeInt(s.getFours()));
         dto.setSixes(safeInt(s.getSixes()));
         dto.setNotOuts(safeInt(s.getNotOut()));
         dto.setFifties(safeInt(s.getFifties()));
         dto.setHundreds(safeInt(s.getHundreds()));
-        dto.setWickets(safeInt(s.getWickets()));
+        dto.setWicketsTaken(safeInt(s.getWickets()));
         dto.setBallsBowled(safeInt(s.getBallsBowled()));
         dto.setRunsConceded(safeInt(s.getRunsConceded()));
         dto.setEconomy(s.getEconomy() != null ? s.getEconomy() : 0.0);
         dto.setBowlingAverage(s.getBowlingAverage() != null ? s.getBowlingAverage() : 0.0);
         dto.setBowlingStrikeRate(s.getBowlingStrikeRate() != null ? s.getBowlingStrikeRate() : 0.0);
+        dto.setBestBowling(s.getBestBowling() != null ? s.getBestBowling() : "0/0");
         dto.setMaidens(safeInt(s.getMaidens()));
         dto.setDotBalls(safeInt(s.getDotBalls()));
         dto.setThreeWicketHauls(safeInt(s.getThreeWicketHauls()));
@@ -828,6 +854,35 @@ public class StatsService {
 
     private int safeInt(Integer value) {
         return value != null ? value : 0;
+    }
+
+    private int totalRunsConcededInInnings(List<CricketBall> balls) {
+        int r = 0;
+        for (CricketBall b : balls) {
+            if (!isByeOrLegBye(b)) {
+                r += safeInt(b.getRuns()) + safeInt(b.getExtra());
+            }
+        }
+        return r;
+    }
+
+    private String compareBestBowling(String b1, String b2) {
+        if (b1 == null || b1.equals("0/0")) return b2;
+        if (b2 == null || b2.equals("0/0")) return b1;
+        try {
+            String[] parts1 = b1.split("/");
+            String[] parts2 = b2.split("/");
+            int w1 = Integer.parseInt(parts1[0]);
+            int r1 = Integer.parseInt(parts1[1]);
+            int w2 = Integer.parseInt(parts2[0]);
+            int r2 = Integer.parseInt(parts2[1]);
+            if (w1 > w2) return b1;
+            if (w2 > w1) return b2;
+            if (r1 < r2) return b1;
+            return b1;
+        } catch (Exception e) {
+            return b1;
+        }
     }
 
     private double roundTo2(double val) {

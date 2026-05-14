@@ -45,6 +45,9 @@ public class Team {
     private PtsTable pointsTableEntry;
     private String status;
 
+    @Column(name = "group_name")
+    private String groupName;
+
     @PrePersist
     public void prePersist() {
         if (this.status == null || this.status.isBlank()) {

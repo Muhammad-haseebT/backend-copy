@@ -50,6 +50,7 @@ public class Stats {
     private Double economy;
     private Double bowlingAverage;
     private Double bowlingStrikeRate;
+    private String bestBowling; // ✅ new field
 
     // ========== FIELDING ==========
     private Integer catches;
@@ -100,5 +101,6 @@ public class Stats {
         if (economy == null) economy = 0.0;
         if (bowlingAverage == null) bowlingAverage = 0.0;
         if (bowlingStrikeRate == null) bowlingStrikeRate = 0.0;
+        if (bestBowling == null) bestBowling = "0/0";
     }
 }

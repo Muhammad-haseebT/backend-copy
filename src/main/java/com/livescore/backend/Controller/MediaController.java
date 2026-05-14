@@ -45,17 +45,21 @@ public class MediaController {
         return mediaService.getAllMedia();
     }
 
+    @GetMapping("/media/ball/{ballId}")
+    public ResponseEntity<?> getMediaByBallId(@PathVariable Long ballId) {
+        return mediaService.getMediaByBallId(ballId);
+    }
+
 //
 //    @DeleteMapping("/media/{id}")
 //    public ResponseEntity<?> deleteMedia(@PathVariable Long id) {
 //        return mediaService.deleteMedia(id);
 //    }
 //
-//    //get media by match id(send files from path to api caller)
-//    @GetMapping("media/match/{id}")
-//    public ResponseEntity<?> getMediaByMatchId(@PathVariable Long id) {
-//        return mediaService.getMediaByMatchId(id);
-//    }
+    @GetMapping("media/match/{id}")
+    public ResponseEntity<?> getMediaByMatchId(@PathVariable Long id) {
+        return mediaService.getMediaByMatchId(id);
+    }
     @GetMapping("media/season/{id}/{page}/{size}")
     public ResponseEntity<?> getMediaBySeasonId(@PathVariable Long id, @PathVariable int page, @PathVariable int size) {
         return mediaService.getMediaBySeasonId(id, page, size);

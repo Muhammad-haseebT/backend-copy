@@ -63,6 +63,12 @@ public class Match {
     @Column(name = "match_format")
     private String matchFormat;
 
+    @Column(name = "round_number")
+    private Integer roundNumber;
+
+    @Column(name = "group_name")
+    private String groupName;
+
     @PrePersist
     public void prePersist() {
         if (this.status == null || this.status.isBlank()) {

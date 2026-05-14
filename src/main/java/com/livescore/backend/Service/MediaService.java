@@ -313,52 +313,9 @@ public class MediaService {
 
     public ResponseEntity<?> getMediaByMatchId(Long matchId) {
         List<Media> mediaList = mediaInterface.findByMatchId(matchId);
-        List<Map<String, Object>> response = new ArrayList<>();
-
-        for (Media m : mediaList) {
-            Map<String, Object> mediaMap = new HashMap<>();
-            mediaMap.put("id", m.getId());
-            mediaMap.put("fileType", m.getFileType());
-
-            // Agar ImageKit URL hai to directly send karo
-            if (m.getFileUrl().startsWith("http")) {
-                mediaMap.put("url", m.getFileUrl());
-                mediaMap.put("mode", "imagekit");
-            } else {
-                // Local file ko base64 mein convert karo
-                try {
-                    Path filePath = Paths.get(m.getFileUrl());
-                    byte[] fileBytes = Files.readAllBytes(filePath);
-                    mediaMap.put("data", Base64.getEncoder().encodeToString(fileBytes));
-                    mediaMap.put("mode", "local");
-                } catch (IOException e) {
-                    continue;
-                }
-            }
-
-            response.add(mediaMap);
-        }
-
-        return ResponseEntity.ok(response);
-    }
-    //get all media
-    public ResponseEntity<?> getAllMedia() {
-        List<Media> m= mediaInterface.findAll();
-        if (m == null || m.isEmpty()) {
-            return ResponseEntity.notFound().build();
-        }
-
-        return ResponseEntity.ok(mediaToDto(m));
-    }
-
-    public ResponseEntity<?> getMediaBySeasonId(Long id, int page, int size) {
-        Pageable pageable = PageRequest.of(page, size);
-        List<Media> mediaList = mediaInterface.findMediaBySeasonId(id, pageable);
-
         if (mediaList == null || mediaList.isEmpty()) {
-            return ResponseEntity.notFound().build();
+            return ResponseEntity.ok(new ArrayList<>());
         }
-
         return ResponseEntity.ok(mediaToDto(mediaList));
     }
 
@@ -369,33 +326,59 @@ public class MediaService {
             Map<String, Object> response = new HashMap<>();
             response.put("id", media.getId());
             response.put("fileType", media.getFileType());
-            response.put("mode", "local");
+            response.put("comment", media.getComment());
 
-            try {
-                File file = new File(media.getFileUrl());
-                if (file.exists()) {
-
-                    byte[] fileContent = Files.readAllBytes(file.toPath());
-
-
-                    String base64Image = Base64.getEncoder().encodeToString(fileContent);
-
-
-                    String dataUrl = "data:" + media.getFileType() + ";base64," + base64Image;
-
-                    response.put("url", dataUrl);
-                } else {
+            String fileUrl = media.getFileUrl();
+            if (fileUrl != null && fileUrl.startsWith("http")) {
+                response.put("url", fileUrl);
+                response.put("mode", "imagekit");
+            } else if (fileUrl != null) {
+                response.put("mode", "local");
+                try {
+                    File file = new File(fileUrl);
+                    if (file.exists()) {
+                        byte[] fileContent = Files.readAllBytes(file.toPath());
+                        String base64Image = Base64.getEncoder().encodeToString(fileContent);
+                        String mimeType = media.getFileType() != null ? media.getFileType() : "image/jpeg";
+                        String dataUrl = "data:" + mimeType + ";base64," + base64Image;
+                        response.put("url", dataUrl);
+                    } else {
+                        response.put("url", null);
+                        response.put("error", "File not found on server");
+                    }
+                } catch (IOException e) {
                     response.put("url", null);
-                    response.put("error", "File not found on server");
+                    response.put("error", "Error reading file: " + e.getMessage());
                 }
-            } catch (IOException e) {
-                response.put("url", null);
-                response.put("error", "Error reading file: " + e.getMessage());
             }
-
             responses.add(response);
         }
         return responses;
+    }
+
+    public ResponseEntity<?> getMediaByBallId(Long ballId) {
+        List<Media> mediaList = mediaInterface.findByBallId(ballId);
+        if (mediaList == null || mediaList.isEmpty()) {
+            return ResponseEntity.ok(new ArrayList<>());
+        }
+        return ResponseEntity.ok(mediaToDto(mediaList));
+    }
+
+    public ResponseEntity<?> getAllMedia() {
+        List<Media> m = mediaInterface.findAll();
+        if (m == null || m.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(mediaToDto(m));
+    }
+
+    public ResponseEntity<?> getMediaBySeasonId(Long id, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        List<Media> mediaList = mediaInterface.findMediaBySeasonId(id, pageable);
+        if (mediaList == null || mediaList.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(mediaToDto(mediaList));
     }
 
     public ResponseEntity<?> getMediaByTournamentId(Long id,int page,int size) {

@@ -413,7 +413,7 @@ public class MatchService {
         matchDTO.setTeam2Name(match.getTeam2().getName());
         matchDTO.setMediaScorerUsername(
                 match.getMediaScorer() != null ? match.getMediaScorer().getUsername() : null);
-        matchDTO.setScorerId(match.getScorer().getUsername());
+        matchDTO.setScorerId(match.getScorer() != null ? match.getScorer().getUsername() : null);
         matchDTO.setStatus(match.getStatus().toUpperCase());
         matchDTO.setVenue(match.getVenue());
         matchDTO.setDate(match.getDate());

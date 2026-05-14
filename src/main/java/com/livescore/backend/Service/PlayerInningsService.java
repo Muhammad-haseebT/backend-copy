@@ -86,6 +86,7 @@ public class PlayerInningsService {
             scorecard.setTotalRuns(matchState.getRuns());
             scorecard.setOvers(matchState.getOvers());
             scorecard.setBalls(matchState.getBalls());
+            scorecard.setWickets(matchState.getWickets());
         } else {
             scorecard.setExtras(0);
             scorecard.setTotalRuns(0);
@@ -288,6 +289,7 @@ public class PlayerInningsService {
         private int TotalRuns = 0;
         private int overs = 0;
         private int balls = 0;
+        private int wickets = 0;
 
 
     }

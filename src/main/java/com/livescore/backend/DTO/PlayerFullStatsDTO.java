@@ -23,11 +23,11 @@ public class PlayerFullStatsDTO {
     private int pomCount;
 
     // ── Cricket — Batting ────────────────────────────────────────
-    private int    totalRuns;
+    private int    runsScored;      // formerly totalRuns
     private int    ballsFaced;
     private double strikeRate;
-    private double battingAvg;
-    private int    highest;
+    private double average;         // formerly battingAvg
+    private int    highestScore;    // formerly highest
     private int    fours;
     private int    sixes;
     private int    notOuts;
@@ -35,12 +35,13 @@ public class PlayerFullStatsDTO {
     private int    hundreds;
 
     // ── Cricket — Bowling ────────────────────────────────────────
-    private int    wickets;
+    private int    wicketsTaken;    // formerly wickets
     private int    ballsBowled;
     private int    runsConceded;
     private double economy;
     private double bowlingAverage;
     private double bowlingStrikeRate;
+    private String bestBowling;     // ✅ new field
     private int    maidens;
     private int    dotBalls;
     private int    threeWicketHauls;
@@ -52,11 +53,6 @@ public class PlayerFullStatsDTO {
     private int runouts;
 
     // ── Multi-sport (futsal/volleyball/badminton/tt/ludo/chess) ──
-    // goals       = points/goals/homeRuns/wins
-    // assists     = assists/aces/smashes/captures/checks
-    // futsalFouls = fouls/blocks/faults
-    // yellowCards = yellow cards/attack errors/outs
-    // redCards    = red cards/service errors
     private int goals;
     private int assists;
     private int ownGoals;
