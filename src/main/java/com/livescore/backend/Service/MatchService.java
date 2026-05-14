@@ -55,11 +55,10 @@ public class MatchService {
 
     // -------------------- Helpers --------------------
     private ResponseEntity<String> validateMatchDTO(MatchDTO matchDTO) {
-        if (matchDTO == null || matchDTO.getScorerId() == null) {
-            return ResponseEntity.badRequest().body("scorerId is required");
-        }
-        if (accountInterface.findActiveByUsername(matchDTO.getScorerId()).isEmpty()) {
-            return ResponseEntity.badRequest().body("Account with id " + matchDTO.getScorerId() + " does not exist");
+        if (matchDTO.getScorerId() != null && !matchDTO.getScorerId().isBlank()) {
+            if (accountInterface.findActiveByUsername(matchDTO.getScorerId()).isEmpty()) {
+                return ResponseEntity.badRequest().body("Scorer Account with username " + matchDTO.getScorerId() + " does not exist");
+            }
         }
         if (matchDTO.getTeam1Id() == null || teamInterface.findById(matchDTO.getTeam1Id()).isEmpty()) {
             return ResponseEntity.badRequest().body("Team with id " + matchDTO.getTeam1Id() + " does not exist");
