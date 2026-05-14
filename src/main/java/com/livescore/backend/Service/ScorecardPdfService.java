@@ -168,7 +168,7 @@ public class ScorecardPdfService {
         if (bowlers != null) {
             for (Map<String, Object> bowler : bowlers) {
                 bowlingTable.addCell(createCell(String.valueOf(bowler.get("name")), false, null));
-                String overs = String.valueOf(bowler.get("overs")) + "." + String.valueOf(bowler.get("ballsBowled"));
+                String overs = String.valueOf((int)bowler.get("ballsBowled")/6) + "." + String.valueOf((int)bowler.get("ballsBowled")%6);
                 bowlingTable.addCell(createCell(overs, false, TextAlignment.CENTER));
                 bowlingTable.addCell(createCell(String.valueOf(bowler.get("wickets")), false, TextAlignment.CENTER));
                 bowlingTable.addCell(createCell(formatDouble(bowler.get("economy")), false, TextAlignment.CENTER));
