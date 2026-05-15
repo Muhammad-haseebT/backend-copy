@@ -46,5 +46,16 @@ public interface StatsInterface extends JpaRepository<Stats,Long> {
             @Param("sport") String sport
     );
 
+    @Query("""
+    SELECT s FROM Stats s
+    WHERE s.tournament.id = :tournamentId
+    AND s.player.id IN :playerIds
+    AND s.player.isDeleted = false
+""")
+    List<Stats> findByTournamentIdAndPlayerIds(
+            @Param("tournamentId") Long tournamentId,
+            @Param("playerIds") List<Long> playerIds
+    );
+
 
 }

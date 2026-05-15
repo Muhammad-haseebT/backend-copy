@@ -47,6 +47,11 @@ public class TeamController {
 
     }
 
+    @GetMapping("/team/{teamId}/stats")
+    public ResponseEntity<?> getTeamStats(@PathVariable Long teamId) {
+        return teamService.getTeamStats(teamId);
+    }
+
 
 
 }
