@@ -206,8 +206,14 @@ WHERE (b.batsman.id = :playerId
     // Get all balls for an innings ordered by ID descending (for undo functionality)
     List<CricketBall> findByInnings_IdOrderByIdDesc(Long inningsId);
 
-    @Query(value = "select new com.livescore.backend.DTO.CricketBallsScoringDTO(c.id,c.event,c.eventType,size(c.mediaList)) from CricketBall c where c.match.id=:MatchId and c.innings.id=:InningsId and c.super_over=:sp ")
-    List<CricketBallsScoringDTO> getBalls(@Param("InningsId") Long inningsId,@Param("MatchId") Long matchId,@Param("sp") boolean sp);
+    @Query(value = "SELECT new com.livescore.backend.DTO.CricketBallsScoringDTO(" +
+            "c.id, c.event, c.eventType, size(c.mediaList), " +
+            "c.batsman.name, c.bowler.name, " +
+            "c.isSix, c.isFour, c.legalDelivery, c.overNumber, c.ballNumber) " +
+            "FROM CricketBall c " +
+            "WHERE c.match.id = :MatchId AND c.innings.id = :InningsId AND c.super_over = :sp " +
+            "ORDER BY c.id ASC")
+    List<CricketBallsScoringDTO> getBalls(@Param("InningsId") Long inningsId, @Param("MatchId") Long matchId, @Param("sp") boolean sp);
 
     @Query("SELECT cb FROM CricketBall cb WHERE cb.innings.id = :inningsId AND cb.match.id = :matchId ORDER BY cb.id ASC")
     List<CricketBall> findAllByInningsAndMatch(@Param("inningsId") Long inningsId,

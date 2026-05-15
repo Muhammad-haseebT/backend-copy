@@ -38,6 +38,9 @@ public class Player {
     @Column(nullable = false)
     private String playerRole;
 
+    @Column(name = "jersey_number")
+    private Integer jerseyNumber;
+
     @Column(name = "is_deleted", nullable = false)
     private Boolean isDeleted = false;
 

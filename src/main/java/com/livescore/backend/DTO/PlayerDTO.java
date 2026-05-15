@@ -11,6 +11,8 @@ public class PlayerDTO {
     private String name;
     private String playerRole;
     private String username;
+    private Integer jerseyNumber;
+    private String profilePhotoUrl;
 
     private List<ShowRequestDTO> playerRequests = new ArrayList<>();
 }

@@ -10,4 +10,5 @@ public class AccountDTO {
     private String password;
     private String name;
     private String role;
+    private String profilePhotoUrl;
 }

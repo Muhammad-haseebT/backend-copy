@@ -168,6 +168,20 @@ public class AccountService {
         return ResponseEntity.ok().build();
     }
 
+    private String fileToDataUrl(String fileUrl) {
+        if (fileUrl == null) return null;
+        try {
+            java.io.File file = new java.io.File(fileUrl);
+            if (file.exists()) {
+                byte[] fileContent = java.nio.file.Files.readAllBytes(file.toPath());
+                return "data:image/jpeg;base64," + Base64.getEncoder().encodeToString(fileContent);
+            }
+        } catch (java.io.IOException e) {
+            log.error("Failed to read image", e);
+        }
+        return null;
+    }
+
     public ResponseEntity<?> loginAccount(AccountDTO account) {
         if (account == null || account.getUsername() == null || account.getUsername().isBlank() || account.getPassword() == null || account.getPassword().isBlank()) {
             return ResponseEntity.badRequest().body("Username and password are required");
@@ -199,6 +213,7 @@ public class AccountService {
                 accountDTO.setId(ac.getId());
                 accountDTO.setName(ac.getName());
                 accountDTO.setRole(ac.getRole());
+                accountDTO.setProfilePhotoUrl(fileToDataUrl(ac.getProfilePhotoUrl()));
                 playerInterface.findActiveByAccount_Id(ac.getId())
                         .map(Player::getId)
                         .ifPresent(accountDTO::setPlayerId);
@@ -255,6 +270,43 @@ public class AccountService {
                 .toList();
 
         return ResponseEntity.ok(accountDTOs);
+    }
+
+    @org.springframework.beans.factory.annotation.Value("${upload.path:C:\\Users\\mht34\\Desktop\\server images}")
+    private String localPath = "C:\\Users\\mht34\\Desktop\\server images";
+
+    public ResponseEntity<?> uploadProfilePhoto(Long id, org.springframework.web.multipart.MultipartFile f) {
+        if (f == null || f.isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Image file is required"));
+        }
+        Optional<Account> opt = accountInterface.findById(id);
+        if (opt.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        try {
+            String fileName = f.getOriginalFilename();
+            if (fileName == null || fileName.isBlank()) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Invalid file name"));
+            }
+            java.io.File dir = new java.io.File(localPath);
+            if (!dir.exists() && !dir.mkdirs()) {
+                return ResponseEntity.internalServerError().body(Map.of("error", "Failed to create upload directory"));
+            }
+            String safeName = fileName.replaceAll("[^a-zA-Z0-9._-]", "_");
+            java.io.File file = new java.io.File(dir, safeName);
+            if (file.exists()) {
+                String unique = System.currentTimeMillis() + "_" + UUID.randomUUID();
+                file = new java.io.File(dir, unique + "_" + safeName);
+            }
+            f.transferTo(file);
+            Account ac = opt.get();
+            ac.setProfilePhotoUrl(file.getAbsolutePath());
+            accountInterface.save(ac);
+            return ResponseEntity.ok(Map.of("profilePhotoUrl", fileToDataUrl(file.getAbsolutePath())));
+        } catch (java.io.IOException e) {
+            log.error("Failed to upload profile photo", e);
+            return ResponseEntity.internalServerError().body(Map.of("error", "Failed to upload file"));
+        }
     }
 
 }

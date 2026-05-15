@@ -5,6 +5,7 @@ import com.livescore.backend.Entity.*;
 import com.livescore.backend.Interface.*;
 import com.livescore.backend.Interface.Cricket.MatchStateInterface;
 import com.livescore.backend.Util.Constants;
+import com.livescore.backend.Entity.NotificationType;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
@@ -49,6 +50,8 @@ public class MatchService {
     private MatchStateInterface matchStateInterface;
     @Autowired
     private PtsTableInterface ptsTableInterface;
+    @Autowired
+    private NotificationService notificationService;
 
 
 
@@ -118,6 +121,27 @@ public class MatchService {
         Match match = new Match();
         applyMatchDTO(match, matchDTO);
         matchInterface.save(match);
+        
+        if (match.getTeam1() != null && match.getTeam2() != null) {
+            String matchTitle = "Match Reminder 🏏";
+            String venue = match.getVenue() != null ? match.getVenue() : "TBD";
+            String matchMsg = match.getTeam1().getName() + " vs " + match.getTeam2().getName() + " on " + match.getDate() + " at " + match.getTime() + " - " + venue;
+            
+            List<Player> playersTeam1 = playerRequestInterface.findApprovedPlayersByTeamId(match.getTeam1().getId());
+            List<Player> playersTeam2 = playerRequestInterface.findApprovedPlayersByTeamId(match.getTeam2().getId());
+            
+            for (Player p : playersTeam1) {
+                if (p.getAccount() != null) {
+                    notificationService.createNotification(p.getAccount(), matchTitle, matchMsg, NotificationType.MATCH_REMINDER);
+                }
+            }
+            for (Player p : playersTeam2) {
+                if (p.getAccount() != null) {
+                    notificationService.createNotification(p.getAccount(), matchTitle, matchMsg, NotificationType.MATCH_REMINDER);
+                }
+            }
+        }
+        
         return ResponseEntity.ok().body("Match created successfully");
     }
 
@@ -278,6 +302,26 @@ public class MatchService {
         }
 
         matchInterface.save(match);
+        
+        if (match.getTeam1() != null && match.getTeam2() != null) {
+            String matchTitle = "Match Started! 🔴 LIVE";
+            String matchMsg = match.getTeam1().getName() + " vs " + match.getTeam2().getName() + " is now LIVE!";
+            
+            List<Player> playersTeam1 = playerRequestInterface.findApprovedPlayersByTeamId(match.getTeam1().getId());
+            List<Player> playersTeam2 = playerRequestInterface.findApprovedPlayersByTeamId(match.getTeam2().getId());
+            
+            for (Player p : playersTeam1) {
+                if (p.getAccount() != null) {
+                    notificationService.createNotification(p.getAccount(), matchTitle, matchMsg, NotificationType.MATCH_START);
+                }
+            }
+            for (Player p : playersTeam2) {
+                if (p.getAccount() != null) {
+                    notificationService.createNotification(p.getAccount(), matchTitle, matchMsg, NotificationType.MATCH_START);
+                }
+            }
+        }
+        
         return ResponseEntity.ok().body("Match started successfully");
     }
     @Caching(evict = {

@@ -51,11 +51,54 @@ public class CricketScoringService implements ScoringServiceInterface {
             ScoreDTO s = new ScoreDTO();
             s.setMatchId(matchId);
             s.setComment("Error no current State");
-            s.setInningsId(m.getCricketInnings().get(size - 1).getId());
+            CricketInnings ci = m.getCricketInnings().get(size - 1);
+            s.setInningsId(ci.getId());
+            
+            try {
+                Long battingTeamId = ci.getTeam().getId();
+                Long bowlingTeamId = m.getTeam1().getId().equals(battingTeamId) 
+                        ? m.getTeam2().getId() 
+                        : m.getTeam1().getId();
+                
+                boolean battingIsTeam1 = battingTeamId.equals(m.getTeam1().getId());
+                Set<Long> battingLineup = parsePlayingIds(
+                    battingIsTeam1 ? m.getTeam1PlayingIds() : m.getTeam2PlayingIds()
+                );
+                Set<Long> bowlingLineup = parsePlayingIds(
+                    battingIsTeam1 ? m.getTeam2PlayingIds() : m.getTeam1PlayingIds()
+                );
+                
+                List<PlayerSimpleDTO> batters = playerRequestInterface
+                        .findApprovedPlayersByTeamId(battingTeamId)
+                        .stream()
+                        .filter(p -> battingLineup == null || battingLineup.contains(p.getId()))
+                        .map(p -> new PlayerSimpleDTO(p.getId(), p.getName()))
+                        .collect(Collectors.toList());
+                s.setAvailableBatters(batters);
+
+                List<PlayerSimpleDTO> bowlers = playerRequestInterface
+                        .findApprovedPlayersByTeamId(bowlingTeamId)
+                        .stream()
+                        .filter(p -> bowlingLineup == null || bowlingLineup.contains(p.getId()))
+                        .map(p -> new PlayerSimpleDTO(p.getId(), p.getName()))
+                        .collect(Collectors.toList());
+                s.setAvailableBowlers(bowlers);
+            } catch (Exception e) {
+                s.setAvailableBatters(java.util.Collections.emptyList());
+                s.setAvailableBowlers(java.util.Collections.emptyList());
+            }
+
             return s;
         }
 
         return convertToScoreDTO(state, false, false, "");
+    }
+
+    private Set<Long> parsePlayingIds(String csv) {
+        if (csv == null || csv.isBlank()) return null; // null = show all
+        return java.util.Arrays.stream(csv.split(","))
+            .map(s -> Long.parseLong(s.trim()))
+            .collect(Collectors.toSet());
     }
 
     private ScoreDTO convertToScoreDTO(MatchState state, Boolean rotate, boolean a, String b) {
@@ -90,9 +133,9 @@ public class CricketScoringService implements ScoringServiceInterface {
             PlayerStatDTO nonStrikerDto = new PlayerStatDTO();
             PlayerStatDTO bowlerDto    = new PlayerStatDTO();
 
-            PlayerInnings batsman    = playerInningsInterface.findByInnings_IdAndPlayer_Id(state.getInnings().getId(), state.getStriker().getId());
-            PlayerInnings bowler     = playerInningsInterface.findByInnings_IdAndPlayer_Id(state.getInnings().getId(), state.getBowler().getId());
-            PlayerInnings nonStriker = playerInningsInterface.findByInnings_IdAndPlayer_Id(state.getInnings().getId(), state.getNonStriker().getId());
+            PlayerInnings batsman    = state.getStriker() != null ? playerInningsInterface.findByInnings_IdAndPlayer_Id(state.getInnings().getId(), state.getStriker().getId()) : null;
+            PlayerInnings bowler     = state.getBowler() != null ? playerInningsInterface.findByInnings_IdAndPlayer_Id(state.getInnings().getId(), state.getBowler().getId()) : null;
+            PlayerInnings nonStriker = state.getNonStriker() != null ? playerInningsInterface.findByInnings_IdAndPlayer_Id(state.getInnings().getId(), state.getNonStriker().getId()) : null;
 
             if (batsman != null && batsman.getPlayer() != null) {
                 scoreDTO.setBatsmanId(batsman.getPlayer().getId());
@@ -192,6 +235,15 @@ public class CricketScoringService implements ScoringServiceInterface {
                     ? m2.getTeam2().getId()
                     : m2.getTeam1().getId();
 
+            // Parse lineup CSVs
+            boolean battingIsTeam1 = battingTeamId.equals(m2.getTeam1().getId());
+            Set<Long> battingLineup = parsePlayingIds(
+                battingIsTeam1 ? m2.getTeam1PlayingIds() : m2.getTeam2PlayingIds()
+            );
+            Set<Long> bowlingLineup = parsePlayingIds(
+                battingIsTeam1 ? m2.getTeam2PlayingIds() : m2.getTeam1PlayingIds()
+            );
+
             // Players dismissed this innings
             Set<Long> dismissedIds = playerInningsInterface
                     .findByInnings_Id(state.getInnings().getId())
@@ -209,6 +261,7 @@ public class CricketScoringService implements ScoringServiceInterface {
             List<PlayerSimpleDTO> batters = playerRequestInterface
                     .findApprovedPlayersByTeamId(battingTeamId)
                     .stream()
+                    .filter(p -> battingLineup == null || battingLineup.contains(p.getId()))
                     .filter(p -> !dismissedIds.contains(p.getId()) && !onCrease.contains(p.getId()))
                     .map(p -> new PlayerSimpleDTO(p.getId(), p.getName()))
                     .collect(Collectors.toList());
@@ -219,7 +272,8 @@ public class CricketScoringService implements ScoringServiceInterface {
             List<PlayerSimpleDTO> bowlers = playerRequestInterface
                     .findApprovedPlayersByTeamId(bowlingTeamId)
                     .stream()
-                    .filter(p -> !p.getId().equals(lastOverBowlerId))
+                    .filter(p -> bowlingLineup == null || bowlingLineup.contains(p.getId()))
+                    .filter(p -> lastOverBowlerId == null || !lastOverBowlerId.equals(p.getId()))
                     .map(p -> new PlayerSimpleDTO(p.getId(), p.getName()))
                     .collect(Collectors.toList());
             scoreDTO.setAvailableBowlers(bowlers);
@@ -451,6 +505,77 @@ public class CricketScoringService implements ScoringServiceInterface {
         // ✅ JsonNode -> ScoreDTO — ObjectMapper safely convert karta hai
         ScoreDTO score = objectMapper.convertValue(rawPayload, ScoreDTO.class);
         return scoreCricket(score);
+    }
+
+    @Transactional
+    public org.springframework.http.ResponseEntity<?> substitutePlayer(Long matchId, java.util.Map<String, Object> body) {
+        try {
+            Long inningsId = ((Number) body.get("inningsId")).longValue();
+            Long outPlayerId = ((Number) body.get("outPlayerId")).longValue();
+            Long inPlayerId = ((Number) body.get("inPlayerId")).longValue();
+            Long teamId = ((Number) body.get("teamId")).longValue();
+
+            PlayerInnings outPI = playerInningsInterface.findByInnings_IdAndPlayer_Id(inningsId, outPlayerId);
+            if (outPI != null) {
+                outPI.setDismissed(true);
+                outPI.setDismissalType("retired hurt");
+                playerInningsInterface.save(outPI);
+            }
+
+            PlayerInnings inPI = playerInningsInterface.findByInnings_IdAndPlayer_Id(inningsId, inPlayerId);
+            if (inPI == null) {
+                inPI = new PlayerInnings();
+                inPI.setInnings(cricketInningsInterface.findById(inningsId).get());
+                inPI.setPlayer(playerInterface.findById(inPlayerId).get());
+                playerInningsInterface.save(inPI);
+            }
+
+            MatchState state = matchStateInterface.findByInnings_Id(inningsId);
+            boolean stateChanged = false;
+            if (state.getStriker() != null && state.getStriker().getId().equals(outPlayerId)) {
+                state.setStriker(inPI.getPlayer());
+                stateChanged = true;
+            } 
+            if (state.getNonStriker() != null && state.getNonStriker().getId().equals(outPlayerId)) {
+                state.setNonStriker(inPI.getPlayer());
+                stateChanged = true;
+            }
+            if (state.getBowler() != null && state.getBowler().getId().equals(outPlayerId)) {
+                state.setBowler(inPI.getPlayer());
+                stateChanged = true;
+            }
+            if (stateChanged) matchStateInterface.save(state);
+
+            Match match = matchInterface.findById(matchId).get();
+            String current = teamId.equals(match.getTeam1().getId()) 
+                    ? match.getTeam1PlayingIds() 
+                    : match.getTeam2PlayingIds();
+                    
+            java.util.List<String> ids;
+            if (current != null && !current.isEmpty()) {
+                ids = new java.util.ArrayList<>(java.util.Arrays.asList(current.split(",")));
+            } else {
+                java.util.List<Player> allPlayers = playerRequestInterface.findApprovedPlayersByTeamId(teamId);
+                ids = allPlayers.stream().map(p -> String.valueOf(p.getId())).collect(Collectors.toList());
+            }
+            
+            ids.remove(String.valueOf(outPlayerId));
+            if (!ids.contains(String.valueOf(inPlayerId))) {
+                ids.add(String.valueOf(inPlayerId));
+            }
+            
+            String newPlayingIds = String.join(",", ids);
+            if (teamId.equals(match.getTeam1().getId())) {
+                match.setTeam1PlayingIds(newPlayingIds);
+            } else {
+                match.setTeam2PlayingIds(newPlayingIds);
+            }
+            matchInterface.save(match);
+
+            return org.springframework.http.ResponseEntity.ok(convertToScoreDTO(state, false, false, ""));
+        } catch (Exception e) {
+            return org.springframework.http.ResponseEntity.badRequest().body("Substitution failed: " + e.getMessage());
+        }
     }
 
 

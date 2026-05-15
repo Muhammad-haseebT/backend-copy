@@ -14,4 +14,13 @@ public class CricketBallsScoringDTO {
     String event;
     String eventType;
     int mediaCount;
+
+    // ── Milestone-detection fields ───────────────────────────────
+    String batsmanName;
+    String bowlerName;
+    Boolean isSix;
+    Boolean isFour;
+    Boolean legalDelivery;
+    Integer overNumber;
+    Integer ballNumber;
 }

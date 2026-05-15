@@ -37,4 +37,8 @@ public class PlayerController {
         return playerService.getPlayerById(id);
     }
 
+    @GetMapping("/player/{id}/info")
+    public ResponseEntity<?> getPlayerInfo(@PathVariable Long id) {
+        return playerService.getPlayerInfo(id);
+    }
 }

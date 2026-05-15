@@ -204,7 +204,7 @@ public class MediaService {
     private String uploadMode;
 
 
-    private String localPath="C:\\Users\\Hussain Asghar\\Desktop\\server images";
+    private String localPath="C:\\Users\\mht34\\Desktop\\server images";
     @Autowired
     private CricketBallInterface cricketBallInterface;
 

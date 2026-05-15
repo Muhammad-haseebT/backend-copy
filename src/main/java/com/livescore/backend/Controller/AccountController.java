@@ -56,6 +56,8 @@ public class AccountController {
         return accountService.getAllPlayerAccounts(tid);
     }
 
-
-
+    @PostMapping("/account/{id}/profile-photo")
+    public ResponseEntity<?> uploadProfilePhoto(@PathVariable Long id, @RequestParam("file") org.springframework.web.multipart.MultipartFile file) {
+        return accountService.uploadProfilePhoto(id, file);
+    }
 }

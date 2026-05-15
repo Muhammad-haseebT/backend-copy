@@ -41,6 +41,9 @@ public class Account {
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
 
+    @Column(name = "profile_photo_url")
+    private String profilePhotoUrl;
+
     // Account -> Season (one-to-many)
     @OneToMany(mappedBy = "account", cascade = CascadeType.ALL)
     @JsonIgnore

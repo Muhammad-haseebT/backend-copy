@@ -74,6 +74,9 @@ public class PlayerService {
             if (player.getPlayerRole() != null && !player.getPlayerRole().isBlank()) {
                 playerEntity.setPlayerRole(player.getPlayerRole());
             }
+            if (player.getJerseyNumber() != null) {
+                playerEntity.setJerseyNumber(player.getJerseyNumber());
+            }
             return ResponseEntity.ok(playerInterface.save(playerEntity));
         }).orElse(ResponseEntity.notFound().build());
     }
@@ -98,6 +101,19 @@ public class PlayerService {
             p2.setId(i.getId());
             p2.setName(i.getName());
             p2.setPlayerRole(i.getPlayerRole());
+            p2.setJerseyNumber(i.getJerseyNumber());
+            
+            String photoUrl = i.getAccount() != null ? i.getAccount().getProfilePhotoUrl() : null;
+            if (photoUrl != null && !photoUrl.startsWith("http") && !photoUrl.startsWith("data:")) {
+                try {
+                    java.io.File file = new java.io.File(photoUrl);
+                    if (file.exists()) {
+                        byte[] fileContent = java.nio.file.Files.readAllBytes(file.toPath());
+                        photoUrl = "data:image/jpeg;base64," + java.util.Base64.getEncoder().encodeToString(fileContent);
+                    }
+                } catch (Exception e) {}
+            }
+            p2.setProfilePhotoUrl(photoUrl);
 
             p2.setPlayerRequests(new ArrayList<>());
 
@@ -151,4 +167,76 @@ public class PlayerService {
 
 
 
+    @Autowired
+    private com.livescore.backend.Interface.StatsInterface statsInterface;
+
+    public ResponseEntity<?> getPlayerInfo(Long id) {
+        java.util.Optional<Player> opt = playerInterface.findActiveById(id);
+        if (opt.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        Player player = opt.get();
+        Map<String, Object> info = new java.util.HashMap<>();
+        info.put("playerName", player.getName());
+        info.put("jerseyNumber", player.getJerseyNumber());
+        
+        String photoUrl = player.getAccount() != null ? player.getAccount().getProfilePhotoUrl() : null;
+        if (photoUrl != null && !photoUrl.startsWith("http") && !photoUrl.startsWith("data:")) {
+            try {
+                java.io.File file = new java.io.File(photoUrl);
+                if (file.exists()) {
+                    byte[] fileContent = java.nio.file.Files.readAllBytes(file.toPath());
+                    photoUrl = "data:image/jpeg;base64," + java.util.Base64.getEncoder().encodeToString(fileContent);
+                }
+            } catch (Exception e) {}
+        }
+        info.put("profilePhotoUrl", photoUrl);
+
+        List<Map<String, Object>> teams = new ArrayList<>();
+        List<Map<String, Object>> tournaments = new ArrayList<>();
+        java.util.Set<String> sports = new java.util.HashSet<>();
+
+        List<PlayerRequest> requests = playerRequestInterface.findAllByPlayer_Id(id);
+        if (requests == null) requests = new ArrayList<>();
+        for (PlayerRequest pr : requests) {
+            if ("ACCEPTED".equalsIgnoreCase(pr.getStatus()) || "APPROVED".equalsIgnoreCase(pr.getStatus())) {
+                if (pr.getTeam() != null && pr.getTournament() != null) {
+                    Map<String, Object> t = new java.util.HashMap<>();
+                    t.put("teamId", pr.getTeam().getId());
+                    t.put("teamName", pr.getTeam().getName());
+                    t.put("tournamentName", pr.getTournament().getName());
+                    t.put("sport", pr.getTournament().getSport() != null ? pr.getTournament().getSport().getName() : "Unknown");
+                    teams.add(t);
+
+                    Map<String, Object> trn = new java.util.HashMap<>();
+                    trn.put("tournamentId", pr.getTournament().getId());
+                    trn.put("name", pr.getTournament().getName());
+                    trn.put("sport", pr.getTournament().getSport() != null ? pr.getTournament().getSport().getName() : "Unknown");
+                    trn.put("status", "ACTIVE");
+
+                    // Avoid duplicate tournaments
+                    if (tournaments.stream().noneMatch(x -> x.get("tournamentId").equals(trn.get("tournamentId")))) {
+                        tournaments.add(trn);
+                    }
+
+                    if (pr.getTournament().getSport() != null) {
+                        sports.add(pr.getTournament().getSport().getName());
+                    }
+                }
+            }
+        }
+
+        info.put("teams", teams);
+        info.put("tournaments", tournaments);
+        info.put("sports", sports);
+
+        long matchesPlayed = 0;
+        List<com.livescore.backend.Entity.Stats> st = statsInterface.findAllByPlayer_Id(id);
+        if (st != null) {
+            matchesPlayed = st.stream().mapToLong(s -> s.getInningsPlayed() != null ? s.getInningsPlayed() : 0).sum();
+        }
+        info.put("totalMatchesPlayed", matchesPlayed);
+
+        return ResponseEntity.ok(info);
+    }
 }

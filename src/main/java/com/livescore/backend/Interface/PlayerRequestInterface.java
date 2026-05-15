@@ -35,6 +35,8 @@ AND pr.player.isDeleted = false
 
     List<PlayerRequest> findByTeam_Id(Long id);
 
+    List<PlayerRequest> findAllByPlayer_Id(Long playerId);
+
     @Query("SELECT CASE WHEN COUNT(pr) > 0 THEN true ELSE false END " +
             "FROM PlayerRequest pr " +
             "WHERE pr.player = :player AND pr.tournament = :tournament AND pr.team=:team")

@@ -93,6 +93,89 @@ public class PlayerInningsService {
             scorecard.setOvers(0);
             scorecard.setBalls(0);
         }
+        // --- ADD FOW AND PARTNERSHIP LOGIC HERE ---
+        List<CricketBall> balls = cricketBallInterface.findByMatchId(matchId, Team1Id);
+        List<FallOfWicketDTO> fallOfWickets = new ArrayList<>();
+        List<PartnershipDTO> partnerships = new ArrayList<>();
+
+        int runningScore = 0;
+        int wicketCount = 0;
+
+        String batter1 = null;
+        String batter2 = null;
+        int partnershipRuns = 0;
+        int partnershipBalls = 0;
+
+        for (CricketBall ball : balls) {
+            String currentStriker = ball.getBatsman() != null ? ball.getBatsman().getName() : "?";
+            String currentNonStriker = ball.getNonStriker() != null ? ball.getNonStriker().getName() : "?";
+
+            if (batter1 == null) {
+                batter1 = currentStriker;
+                batter2 = currentNonStriker;
+            } else {
+                if ("?".equals(batter1)) {
+                    batter1 = currentStriker.equals(batter2) ? currentNonStriker : currentStriker;
+                }
+                if ("?".equals(batter2)) {
+                    batter2 = currentStriker.equals(batter1) ? currentNonStriker : currentStriker;
+                }
+            }
+
+            if (Boolean.TRUE.equals(ball.getLegalDelivery()) || !"wide".equalsIgnoreCase(ball.getEventType())) {
+                partnershipBalls++;
+            }
+
+            partnershipRuns += (ball.getRuns() != null ? ball.getRuns() : 0)
+                    + (ball.getExtra() != null ? ball.getExtra() : 0);
+
+            runningScore += (ball.getRuns() != null ? ball.getRuns() : 0)
+                    + (ball.getExtra() != null ? ball.getExtra() : 0);
+
+            if (ball.getDismissalType() != null && !ball.getDismissalType().isEmpty()) {
+                wicketCount++;
+                FallOfWicketDTO fow = new FallOfWicketDTO();
+                fow.setWicketNumber(wicketCount);
+                fow.setScore(runningScore);
+                fow.setOver(ball.getOverNumber() + "." + ball.getBallNumber());
+                fow.setPlayerName(ball.getOutPlayer() != null ? ball.getOutPlayer().getName() : "Unknown");
+                fow.setDismissalType(ball.getDismissalType());
+                fallOfWickets.add(fow);
+
+                PartnershipDTO p = new PartnershipDTO();
+                p.setBatter1(batter1);
+                p.setBatter2(batter2);
+                p.setRuns(partnershipRuns);
+                p.setBalls(partnershipBalls);
+                p.setNotOut(false);
+                partnerships.add(p);
+
+                partnershipRuns = 0;
+                partnershipBalls = 0;
+
+                String outName = ball.getOutPlayer() != null ? ball.getOutPlayer().getName() : "";
+                if (outName.equals(batter1)) {
+                    batter1 = "?";
+                } else {
+                    batter2 = "?";
+                }
+            }
+        }
+
+        if (partnershipRuns > 0 || partnershipBalls > 0) {
+            PartnershipDTO last = new PartnershipDTO();
+            last.setBatter1(batter1);
+            last.setBatter2(batter2);
+            last.setRuns(partnershipRuns);
+            last.setBalls(partnershipBalls);
+            last.setNotOut(true);
+            partnerships.add(last);
+        }
+
+        scorecard.setFallOfWickets(fallOfWickets);
+        scorecard.setPartnerships(partnerships);
+        // --- END FOW AND PARTNERSHIP LOGIC ---
+
         return ResponseEntity.ok(scorecard);
 
     }
@@ -290,6 +373,8 @@ public class PlayerInningsService {
         private int overs = 0;
         private int balls = 0;
         private int wickets = 0;
+        private List<FallOfWicketDTO> fallOfWickets = new ArrayList<>();
+        private List<PartnershipDTO> partnerships = new ArrayList<>();
 
 
     }
@@ -312,6 +397,28 @@ public class PlayerInningsService {
         private int runsConceded = 0;
         private int wickets = 0;
         private int ballsBowled = 0;
+    }
+
+    @Data
+    @AllArgsConstructor
+    @NoArgsConstructor
+    public static class FallOfWicketDTO {
+        private int wicketNumber;
+        private int score;
+        private String over;
+        private String playerName;
+        private String dismissalType;
+    }
+
+    @Data
+    @AllArgsConstructor
+    @NoArgsConstructor
+    public static class PartnershipDTO {
+        private String batter1;
+        private String batter2;
+        private int runs;
+        private int balls;
+        private boolean isNotOut = false;
     }
 
 }

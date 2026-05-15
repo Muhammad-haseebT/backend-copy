@@ -156,6 +156,12 @@ public class MatchController {
         return ResponseEntity.ok(favouritePlayerService.checkVote(matchId, aid));
     }
 
+    @Autowired
+    private com.livescore.backend.Sport.Cricket.CricketScoringService cricketScoringService;
 
+    @PostMapping("/match/{matchId}/substitute")
+    public ResponseEntity<?> substitutePlayer(@PathVariable Long matchId, @RequestBody Map<String, Object> body) {
+        return cricketScoringService.substitutePlayer(matchId, body);
+    }
 
 }

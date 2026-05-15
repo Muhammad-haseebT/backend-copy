@@ -188,6 +188,57 @@ public class ScorecardPdfService {
         totalsTable.addCell(createCell("Overs: " + scorecard.get("overs") + "." + scorecard.get("balls"), true, null));
         
         document.add(totalsTable);
+
+        // Fall of Wickets Table
+        List<Map<String, Object>> fowList = (List<Map<String, Object>>) scorecard.get("fallOfWickets");
+        if (fowList != null && !fowList.isEmpty()) {
+            document.add(new Paragraph("FALL OF WICKETS").setBold().setMarginTop(10).setMarginBottom(5));
+            Table fowTable = new Table(UnitValue.createPercentArray(new float[]{15, 25, 20, 40}))
+                    .useAllAvailableWidth()
+                    .setMarginBottom(15);
+            fowTable.addHeaderCell(createHeaderCell("Wicket"));
+            fowTable.addHeaderCell(createHeaderCell("Score"));
+            fowTable.addHeaderCell(createHeaderCell("Over"));
+            fowTable.addHeaderCell(createHeaderCell("Batter"));
+            
+            for (Map<String, Object> fow : fowList) {
+                fowTable.addCell(createCell(String.valueOf(fow.get("wicketNumber")), false, TextAlignment.CENTER));
+                fowTable.addCell(createCell(String.valueOf(fow.get("score")), false, TextAlignment.CENTER));
+                fowTable.addCell(createCell(String.valueOf(fow.get("over")), false, TextAlignment.CENTER));
+                fowTable.addCell(createCell(String.valueOf(fow.get("playerName")), false, null));
+            }
+            document.add(fowTable);
+        }
+
+        // Partnerships Table
+        List<Map<String, Object>> partnerships = (List<Map<String, Object>>) scorecard.get("partnerships");
+        if (partnerships != null && !partnerships.isEmpty()) {
+            document.add(new Paragraph("PARTNERSHIPS").setBold().setMarginTop(10).setMarginBottom(5));
+            Table pTable = new Table(UnitValue.createPercentArray(new float[]{40, 20, 20, 20}))
+                    .useAllAvailableWidth()
+                    .setMarginBottom(15);
+            pTable.addHeaderCell(createHeaderCell("Batters"));
+            pTable.addHeaderCell(createHeaderCell("Runs"));
+            pTable.addHeaderCell(createHeaderCell("Balls"));
+            pTable.addHeaderCell(createHeaderCell("Not Out"));
+            
+            for (Map<String, Object> p : partnerships) {
+                String batterNames = String.valueOf(p.get("batter1")) + " & " + String.valueOf(p.get("batter2"));
+                pTable.addCell(createCell(batterNames, false, null));
+                pTable.addCell(createCell(String.valueOf(p.get("runs")), false, TextAlignment.CENTER));
+                pTable.addCell(createCell(String.valueOf(p.get("balls")), false, TextAlignment.CENTER));
+                
+                boolean isNotOut = false;
+                if (p.get("notOut") != null) {
+                    isNotOut = Boolean.parseBoolean(String.valueOf(p.get("notOut")));
+                } else if (p.get("isNotOut") != null) {
+                    isNotOut = Boolean.parseBoolean(String.valueOf(p.get("isNotOut")));
+                }
+                
+                pTable.addCell(createCell(isNotOut ? "Yes" : "No", false, TextAlignment.CENTER));
+            }
+            document.add(pTable);
+        }
     }
 
     private Cell createHeaderCell(String text) {
