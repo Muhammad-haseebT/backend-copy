@@ -597,6 +597,13 @@ public class CricketScoringService implements ScoringServiceInterface {
             result.setComment("DLS_UPDATED");
             return result;
         }
+        
+        // ─── REFRESH: just return state without saving a ball ────
+        if ("refresh".equalsIgnoreCase(score.getEventType())) {
+            MatchState m = matchStateInterface.findByInnings_Id(score.getInningsId());
+            if (m == null) return new ScoreDTO(); // fallback
+            return convertToScoreDTO(m, false, false, "");
+        }
         // ─────────────────────────────────────────────────────────────
 
         Player batsmanPlayer    = playerInterface.findActiveById(score.getBatsmanId()).get();

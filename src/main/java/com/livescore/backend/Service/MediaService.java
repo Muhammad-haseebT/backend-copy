@@ -249,9 +249,6 @@ public class MediaService {
         CricketBall b=cricketBallInterface.findById(media.getBallId()).orElse(null);
         mediaEntity.setBall(b);
         Media savedMedia = mediaInterface.save(mediaEntity);
-        assert b != null;
-        b.setMediaList(mediaInterface.findByBallId(b.getId()));
-        cricketBallInterface.save(b);
         return ResponseEntity.ok(Map.of(
                 "message", "Media uploaded successfully",
                 "mediaId", savedMedia.getId(),

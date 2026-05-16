@@ -6,6 +6,9 @@ import lombok.Data;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 @Entity
 @Data
 public class Media {
@@ -31,4 +34,8 @@ public class Media {
     // ✅ NEW
     @Column(length = 500)
     private String comment;
+
+    @OneToMany(mappedBy = "media", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnore
+    private List<FavouriteMedia> favouritedBy = new ArrayList<>();
 }
