@@ -64,10 +64,10 @@ public interface MatchInterface extends JpaRepository<Match,Long> {
     SELECT COUNT(m)
     FROM Match m
     WHERE EXISTS (
-        SELECT p FROM m.team1.players p WHERE p.id = :playerId
+        SELECT pr FROM m.team1.playerRequests pr WHERE pr.player.id = :playerId AND pr.status = 'APPROVED'
     )
     OR EXISTS (
-        SELECT p FROM m.team2.players p WHERE p.id = :playerId
+        SELECT pr FROM m.team2.playerRequests pr WHERE pr.player.id = :playerId AND pr.status = 'APPROVED'
     )
 """)int findMatchesByTeam(@Param("playerId") Long playerId);
 
@@ -88,10 +88,11 @@ public interface MatchInterface extends JpaRepository<Match,Long> {
     FROM match m
     JOIN tournament t ON m.tournament_id = t.id
     JOIN sports s ON t.sports_id = s.id
-    JOIN stats st ON st.tournament_id = t.id
+    JOIN player_request pr ON (pr.team_id = m.team1_id OR pr.team_id = m.team2_id)
     WHERE m.status = 'COMPLETED'
-    AND s.name = 'Cricket'
-    AND st.player_id = ?1
+    AND LOWER(s.name) LIKE LOWER('%cricket%')
+    AND pr.player_id = ?1
+    AND pr.status = 'APPROVED'
 """, nativeQuery = true)
     int findCricketMatchesByPlayer(Long playerId);
 
@@ -100,11 +101,11 @@ public interface MatchInterface extends JpaRepository<Match,Long> {
     FROM match m
     JOIN tournament t ON m.tournament_id = t.id
     JOIN sports s ON t.sports_id = s.id
-    JOIN stats st ON st.tournament_id = t.id
+    JOIN player_request pr ON (pr.team_id = m.team1_id OR pr.team_id = m.team2_id)
     WHERE m.status = 'COMPLETED'
-    AND s.name = 'Futsal'
-       AND LOWER(s.name) LIKE LOWER('%futsal%')
-    AND st.player_id = ?1
+    AND LOWER(s.name) LIKE LOWER('%futsal%')
+    AND pr.player_id = ?1
+    AND pr.status = 'APPROVED'
 """, nativeQuery = true)
     int findFutsalMatchesByPlayer(Long playerId);
 
@@ -113,11 +114,11 @@ public interface MatchInterface extends JpaRepository<Match,Long> {
     FROM match m
     JOIN tournament t ON m.tournament_id = t.id
     JOIN sports s ON t.sports_id = s.id
-    JOIN stats st ON st.tournament_id = t.id
+    JOIN player_request pr ON (pr.team_id = m.team1_id OR pr.team_id = m.team2_id)
     WHERE m.status = 'COMPLETED'
-    AND s.name = 'VolleyBall'
-       AND LOWER(s.name) LIKE LOWER('%volley%ball%')
-    AND st.player_id = ?1
+    AND LOWER(s.name) LIKE LOWER('%volley%ball%')
+    AND pr.player_id = ?1
+    AND pr.status = 'APPROVED'
 """, nativeQuery = true)
     int findVolleyballMatchesByPlayer(Long playerId);
 
@@ -126,23 +127,24 @@ public interface MatchInterface extends JpaRepository<Match,Long> {
     FROM match m
     JOIN tournament t ON m.tournament_id = t.id
     JOIN sports s ON t.sports_id = s.id
-    JOIN stats st ON st.tournament_id = t.id
+    JOIN player_request pr ON (pr.team_id = m.team1_id OR pr.team_id = m.team2_id)
     WHERE m.status = 'COMPLETED'
-    AND s.name = 'Badminton'
     AND LOWER(s.name) LIKE LOWER('%badminton%')
-    AND st.player_id = ?1
+    AND pr.player_id = ?1
+    AND pr.status = 'APPROVED'
 """, nativeQuery = true)
     int findBadmintonMatchesByPlayer(Long playerId);
 
     @Query(value = """
-    SELECT COUNT(DISTINCT m.id)\s
+    SELECT COUNT(DISTINCT m.id) 
     FROM match m
     JOIN tournament t ON m.tournament_id = t.id
     JOIN sports s ON t.sports_id = s.id
-    JOIN stats st ON st.tournament_id = t.id
+    JOIN player_request pr ON (pr.team_id = m.team1_id OR pr.team_id = m.team2_id)
     WHERE LOWER(m.status) = LOWER('COMPLETED')
     AND LOWER(s.name) LIKE LOWER('%table%tennis%')
-    AND st.player_id = ?1
+    AND pr.player_id = ?1
+    AND pr.status = 'APPROVED'
 """, nativeQuery = true)
     int findTableTennisMatchesByPlayer(Long playerId);
 
@@ -151,10 +153,11 @@ public interface MatchInterface extends JpaRepository<Match,Long> {
     FROM match m
     JOIN tournament t ON m.tournament_id = t.id
     JOIN sports s ON t.sports_id = s.id
-    JOIN stats st ON st.tournament_id = t.id
+    JOIN player_request pr ON (pr.team_id = m.team1_id OR pr.team_id = m.team2_id)
     WHERE LOWER(m.status) = LOWER('COMPLETED')
     AND (LOWER(s.name) LIKE LOWER('%tug%war%') OR REPLACE(LOWER(s.name), ' ', '') = 'tugofwar')
-    AND st.player_id = ?1
+    AND pr.player_id = ?1
+    AND pr.status = 'APPROVED'
 """, nativeQuery = true)
     int findTableTugOfWarMatchesByPlayer(Long playerId);
     @Query(value = """
@@ -162,10 +165,11 @@ public interface MatchInterface extends JpaRepository<Match,Long> {
     FROM match m
     JOIN tournament t ON m.tournament_id = t.id
     JOIN sports s ON t.sports_id = s.id
-    JOIN stats st ON st.tournament_id = t.id
+    JOIN player_request pr ON (pr.team_id = m.team1_id OR pr.team_id = m.team2_id)
     WHERE LOWER(m.status) = LOWER('COMPLETED')
     AND (LOWER(s.name) LIKE LOWER('%ludo%') OR REPLACE(LOWER(s.name), ' ', '') = 'ludo')
-    AND st.player_id = ?1
+    AND pr.player_id = ?1
+    AND pr.status = 'APPROVED'
 """, nativeQuery = true)
     int findLudoMatchesByPlayer(Long playerId);
     @Query(value = """
@@ -173,10 +177,11 @@ public interface MatchInterface extends JpaRepository<Match,Long> {
     FROM match m
     JOIN tournament t ON m.tournament_id = t.id
     JOIN sports s ON t.sports_id = s.id
-    JOIN stats st ON st.tournament_id = t.id
+    JOIN player_request pr ON (pr.team_id = m.team1_id OR pr.team_id = m.team2_id)
     WHERE LOWER(m.status) = LOWER('COMPLETED')
     AND (LOWER(s.name) LIKE LOWER('%chess%') OR REPLACE(LOWER(s.name), ' ', '') = 'chess')
-    AND st.player_id = ?1
+    AND pr.player_id = ?1
+    AND pr.status = 'APPROVED'
 """, nativeQuery = true)
     int findChessMatchesByPlayer(Long playerId);
 

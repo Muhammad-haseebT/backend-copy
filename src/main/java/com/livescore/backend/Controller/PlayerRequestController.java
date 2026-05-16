@@ -46,4 +46,9 @@ public class PlayerRequestController {
     public ResponseEntity<?> getPlayerRequestsByPlayerId(@PathVariable Long playerId) {
         return playerRequestService.getPlayerRequestsByPlayerId(playerId);
     }
+
+    @DeleteMapping("/playerRequest/team/{teamId}/player/{playerId}")
+    public ResponseEntity<?> removePlayerFromTeam(@PathVariable Long teamId, @PathVariable Long playerId) {
+        return playerRequestService.removePlayerFromTeam(teamId, playerId);
+    }
 }

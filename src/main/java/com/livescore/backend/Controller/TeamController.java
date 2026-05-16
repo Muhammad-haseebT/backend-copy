@@ -6,6 +6,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Map;
+
 @RestController
 public class TeamController {
     @Autowired
@@ -52,6 +54,17 @@ public class TeamController {
         return teamService.getTeamStats(teamId);
     }
 
+    @PostMapping("/team/reuse")
+    public ResponseEntity<?> reuseTeam(@RequestBody Map<String, Long> body) {
+        return teamService.reuseTeam(
+                body.get("sourceTeamId"),
+                body.get("targetTournamentId"),
+                body.get("creatorPlayerId")
+        );
+    }
 
-
+    @GetMapping("/team/player/{playerId}/history")
+    public ResponseEntity<?> getPlayerTeamHistory(@PathVariable Long playerId) {
+        return teamService.getPlayerTeamHistory(playerId);
+    }
 }

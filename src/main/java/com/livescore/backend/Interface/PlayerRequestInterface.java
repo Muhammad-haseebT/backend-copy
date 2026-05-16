@@ -32,6 +32,8 @@ AND pr.player.isDeleted = false
 
     Optional<PlayerRequest> findByPlayer_IdAndTeam_Id(Long playerId, Long teamId);
 
+    Optional<PlayerRequest> findByTeam_IdAndPlayer_Id(Long teamId, Long playerId);
+
 
     List<PlayerRequest> findByTeam_Id(Long id);
 

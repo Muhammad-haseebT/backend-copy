@@ -231,5 +231,40 @@ public class PlayerRequestService {
         playerRequestInterface.save(playerRequest);
         return ResponseEntity.ok().build();
     }
+
+    @CacheEvict(value = {"teamByTournamentId", "teams", "teamById", "teamByTournamentIdAndAccountId", "teamByPlayers"}, allEntries = true)
+    @org.springframework.transaction.annotation.Transactional
+    public ResponseEntity<?> removePlayerFromTeam(Long teamId, Long playerIdOrRequestId) {
+        // 1. Try finding by Player ID within the team
+        List<PlayerRequest> teamRequests = playerRequestInterface.findByTeam_Id(teamId);
+        PlayerRequest pr = teamRequests.stream()
+                .filter(r -> r.getPlayer() != null && r.getPlayer().getId().equals(playerIdOrRequestId))
+                .findFirst()
+                .orElse(null);
+
+        // 2. If not found, try finding by Request ID directly
+        if (pr == null) {
+            pr = playerRequestInterface.findById(playerIdOrRequestId).orElse(null);
+            // Verify it belongs to the correct team
+            if (pr != null && (pr.getTeam() == null || !pr.getTeam().getId().equals(teamId))) {
+                pr = null;
+            }
+        }
+
+        if (pr == null) {
+            System.out.println("ERROR: No PlayerRequest found for teamId: " + teamId + " and playerId/requestId: " + playerIdOrRequestId);
+            return ResponseEntity.notFound().build();
+        }
+
+        // Unlink player.team
+        Player player = pr.getPlayer();
+        if (player != null) {
+            player.setTeam(null);
+            playerInterface.save(player);
+        }
+
+        playerRequestInterface.delete(pr);
+        return ResponseEntity.ok("Player removed");
+    }
 }
 

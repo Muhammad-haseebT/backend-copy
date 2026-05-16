@@ -10,6 +10,7 @@ import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -36,8 +37,15 @@ public class TeamService {
     @Autowired
     private StatsInterface statsInterface;
 
+    @Autowired
+    private NotificationService notificationService;
+
+    @Autowired
+    private MatchInterface matchInterface;
+
 
     @CacheEvict(value = {"teamByTournamentId", "teams", "teamById", "teamByTournamentIdAndAccountId", "teamByPlayers"}, allEntries = true)
+    @Transactional
     public ResponseEntity<?> createTeam(Team team, Long tournamentId, Long playerId) {
         // Validate input
         ResponseEntity<?> validation = ValidationUtils.validateNotNull(team, "Team details");
@@ -145,6 +153,7 @@ public class TeamService {
             m.put("id", team.getId());
             m.put("name", team.getName());
             m.put("status", team.getStatus());
+            m.put("creatorId", team.getCreator() != null ? team.getCreator().getId() : null);
             response.add(m);
         }
 
@@ -188,6 +197,7 @@ public class TeamService {
                 .map(p -> {
                     Map<String, Object> playerMap = new HashMap<>();
                     playerMap.put("id", p.getId());
+                    playerMap.put("playerId", p.getPlayer().getId());
                     playerMap.put("name", p.getPlayer().getName());
                     playerMap.put("status", p.getStatus());
                     return playerMap;
@@ -198,29 +208,40 @@ public class TeamService {
         response.put("teamName", team.getName());
         response.put("teamId", team.getId());
         response.put("teamStatus", team.getStatus());
+        response.put("creatorPlayerId", creatorPlayerId);
         response.put("players", playersLite);
 
         return ResponseEntity.ok(response);
     }
 
-    @Cacheable(value = "teamByPlayers", key = "#teamId")
-
     public ResponseEntity<?> findPlayersByTeam(Long teamId) {
-        // Team exist karta hai?
         Team team = teamInterface.findById(teamId).orElse(null);
         if (team == null) {
             return ResponseEntity.notFound().build();
         }
 
-        // player_request se APPROVED players fetch karo
-        List<Player> players = playerRequestInterface
-                .findApprovedPlayersByTeamId(teamId);
+        Long creatorId = team.getCreator() != null ? team.getCreator().getId() : null;
 
-        return ResponseEntity.ok(players);
+        // player_request se APPROVED players fetch karo
+        List<Player> players = playerRequestInterface.findApprovedPlayersByTeamId(teamId);
+
+        // Return lightweight map with isCreator flag
+        List<Map<String, Object>> result = players.stream()
+                .filter(p -> p != null && !Boolean.TRUE.equals(p.getIsDeleted()))
+                .map(p -> {
+                    Map<String, Object> m = new HashMap<>();
+                    m.put("id", p.getId());
+                    m.put("name", p.getName());
+                    m.put("isCreator", p.getId().equals(creatorId));
+                    return m;
+                })
+                .collect(Collectors.toList());
+
+        return ResponseEntity.ok(result);
     }
 
 
-    @Cacheable(value = "teamStats", key = "#teamId")
+
     public ResponseEntity<?> getTeamStats(Long teamId) {
 
         // 1. Team fetch
@@ -255,6 +276,27 @@ public class TeamService {
                 dto.setNrr(pts.getNrr() != null ? pts.getNrr() : 0.0);
                 dto.setGoalsFor(safe(pts.getGoalsFor()));
                 dto.setGoalsAgainst(safe(pts.getGoalsAgainst()));
+            }
+
+            // Fallback: if PtsTable has no played data, count directly from completed matches
+            if (dto.getMatchesPlayed() == 0) {
+                long completedCount = matchInterface.findByTournamentId(tournamentId).stream()
+                        .filter(m -> "COMPLETED".equalsIgnoreCase(m.getStatus())
+                                && m.getTeam1() != null && m.getTeam2() != null
+                                && (m.getTeam1().getId().equals(teamId) || m.getTeam2().getId().equals(teamId)))
+                        .count();
+                dto.setMatchesPlayed((int) completedCount);
+
+                // Count wins by winner team
+                if (completedCount > 0) {
+                    long wins = matchInterface.findByTournamentId(tournamentId).stream()
+                            .filter(m -> "COMPLETED".equalsIgnoreCase(m.getStatus())
+                                    && m.getWinnerTeam() != null
+                                    && m.getWinnerTeam().getId().equals(teamId))
+                            .count();
+                    dto.setWins((int) wins);
+                    dto.setLosses((int) (completedCount - wins));
+                }
             }
         }
 
@@ -367,5 +409,101 @@ public class TeamService {
 
     private int safe(Integer v) {
         return v == null ? 0 : v;
+    }
+
+    @CacheEvict(value = {"teamByTournamentId", "teams", "teamById", "teamByTournamentIdAndAccountId", "teamByPlayers"}, allEntries = true)
+    @Transactional
+    public ResponseEntity<?> reuseTeam(Long sourceTeamId, Long targetTournamentId, Long creatorPlayerId) {
+        Team source = teamInterface.findById(sourceTeamId).orElse(null);
+        Tournament tournament = tournamentInterface.findById(targetTournamentId).orElse(null);
+        Player creator = playerInterface.findActiveById(creatorPlayerId).orElse(null);
+
+        if (source == null || tournament == null || creator == null) {
+            return ValidationUtils.badRequest("Invalid source team, tournament, or creator");
+        }
+
+        // Creator already in this tournament?
+        if (playerRequestInterface.findExistingRequest(creatorPlayerId, targetTournamentId) != null) {
+            return ValidationUtils.badRequest("You already belong to a team in this tournament");
+        }
+
+        // Create new team
+        Team newTeam = new Team();
+        newTeam.setName(source.getName());
+        newTeam.setTournament(tournament);
+        newTeam.setCreator(creator);
+        newTeam.setStatus("DRAFT");
+        Team saved = teamInterface.save(newTeam);
+
+        // Auto-approve creator
+        PlayerRequest creatorPR = new PlayerRequest();
+        creatorPR.setPlayer(creator);
+        creatorPR.setTeam(saved);
+        creatorPR.setTournament(tournament);
+        creatorPR.setStatus(Constants.STATUS_APPROVED);
+        playerRequestInterface.save(creatorPR);
+
+        creator.setTeam(saved);
+        creator.setPlayerRole(Constants.ROLE_CAPTAIN);
+        playerInterface.save(creator);
+
+        // Invite all old approved players
+        List<Player> oldPlayers = playerRequestInterface.findApprovedPlayersByTeamId(sourceTeamId);
+
+        int sent = 0;
+        for (Player p : oldPlayers) {
+            if (p.getId().equals(creatorPlayerId)) continue;
+            // Skip if player already in this tournament
+            if (playerRequestInterface.findExistingRequest(p.getId(), targetTournamentId) != null) continue;
+
+            PlayerRequest pr = new PlayerRequest();
+            pr.setPlayer(p);
+            pr.setTeam(saved);
+            pr.setTournament(tournament);
+            pr.setStatus("PENDING");
+            playerRequestInterface.save(pr);
+
+            // Notify each player
+            if (p.getAccount() != null) {
+                notificationService.createNotification(
+                        p.getAccount(),
+                        "Team Invitation 🏆",
+                        creator.getName() + " invited you to join " + saved.getName() + " in " + tournament.getName(),
+                        NotificationType.FIXTURE
+                );
+            }
+            sent++;
+        }
+
+        return ResponseEntity.ok(Map.of(
+                "message", "Team reused successfully",
+                "newTeamId", saved.getId(),
+                "teamName", saved.getName(),
+                "invitesSent", sent
+        ));
+    }
+
+    public ResponseEntity<?> getPlayerTeamHistory(Long playerId) {
+        List<PlayerRequest> requests = playerRequestInterface.findAllByPlayer_Id(playerId)
+                .stream()
+                .filter(pr -> Constants.STATUS_APPROVED.equals(pr.getStatus()))
+                .toList();
+
+        List<Map<String, Object>> result = requests.stream().map(pr -> {
+            Team t = pr.getTeam();
+            List<Player> members = playerRequestInterface.findApprovedPlayersByTeamId(t.getId());
+
+            Map<String, Object> m = new HashMap<>();
+            m.put("teamId", t.getId());
+            m.put("teamName", t.getName());
+            m.put("tournamentId", t.getTournament().getId());
+            m.put("tournamentName", t.getTournament().getName());
+            m.put("sport", t.getTournament().getSport() != null ? t.getTournament().getSport().getName() : "Unknown");
+            m.put("playerCount", members.size());
+            m.put("teamStatus", t.getStatus());
+            return m;
+        }).toList();
+
+        return ResponseEntity.ok(result);
     }
 }
