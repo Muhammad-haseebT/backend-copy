@@ -38,7 +38,7 @@ public interface PlayerInterface extends JpaRepository<Player,Long> {
     Optional<Player> findByAccount_Id(Long id);
 
 
-    @Query("SELECT p FROM Player p WHERE p.account.id = :id AND p.isDeleted = false")
+    @Query("SELECT p FROM Player p WHERE p.account.id = :id AND (p.isDeleted = false OR p.isDeleted IS NULL)")
     Optional<Player> findActiveByAccount_Id(@Param("id") Long id);
 
     List<Player> findAllByAccount_Id(Long id);
