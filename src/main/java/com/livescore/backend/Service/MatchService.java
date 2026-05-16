@@ -448,23 +448,39 @@ public class MatchService {
     private MatchDTO convertToDTO(Match match) {
         MatchDTO matchDTO = new MatchDTO();
         matchDTO.setId(match.getId());
-        matchDTO.setTournamentId(match.getTournament().getId());
-        matchDTO.setTournamentName(match.getTournament().getName());
-        matchDTO.setTeam1Id(match.getTeam1().getId());
-        matchDTO.setTeam1Name(match.getTeam1().getName());
-        matchDTO.setTeam2Id(match.getTeam2().getId());
-        matchDTO.setTeam2Name(match.getTeam2().getName());
+        
+        if (match.getTournament() != null) {
+            matchDTO.setTournamentId(match.getTournament().getId());
+            matchDTO.setTournamentName(match.getTournament().getName());
+            if (match.getTournament().getSport() != null) {
+                matchDTO.setSportId(match.getTournament().getSport().getId());
+            }
+        }
+        
+        if (match.getTeam1() != null) {
+            matchDTO.setTeam1Id(match.getTeam1().getId());
+            matchDTO.setTeam1Name(match.getTeam1().getName());
+        }
+        
+        if (match.getTeam2() != null) {
+            matchDTO.setTeam2Id(match.getTeam2().getId());
+            matchDTO.setTeam2Name(match.getTeam2().getName());
+        }
+        
         matchDTO.setMediaScorerUsername(
                 match.getMediaScorer() != null ? match.getMediaScorer().getUsername() : null);
         matchDTO.setScorerId(match.getScorer() != null ? match.getScorer().getUsername() : null);
-        matchDTO.setStatus(match.getStatus().toUpperCase());
+        
+        if (match.getStatus() != null) {
+            matchDTO.setStatus(match.getStatus().toUpperCase());
+        }
+        
         matchDTO.setVenue(match.getVenue());
         matchDTO.setDate(match.getDate());
         matchDTO.setTime(match.getTime());
         matchDTO.setDecision(match.getDecision());
         matchDTO.setOvers(match.getOvers());
         matchDTO.setSets(match.getSets());
-        matchDTO.setSportId(match.getTournament().getSport().getId());
         matchDTO.setHalfDurationMins(match.getHalfDurationMins());
         matchDTO.setPointsPerSet(match.getPointsPerSet());
         matchDTO.setFinalSetPoints(match.getFinalSetPoints());
