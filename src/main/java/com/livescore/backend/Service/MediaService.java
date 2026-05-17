@@ -324,6 +324,7 @@ public class MediaService {
             response.put("id", media.getId());
             response.put("fileType", media.getFileType());
             response.put("comment", media.getComment());
+            response.put("matchId", media.getMatch() != null ? media.getMatch().getId() : null);
 
             String fileUrl = media.getFileUrl();
             if (fileUrl != null && fileUrl.startsWith("http")) {
