@@ -15,4 +15,5 @@ public class TournamentRequestDTO {
     private LocalDate endDate;
     private Long seasonId;
     private Long sportsId;
+    private boolean doubleWicket = false;
 }

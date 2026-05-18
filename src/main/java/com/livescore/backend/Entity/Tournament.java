@@ -71,5 +71,8 @@ public class Tournament {
     @JsonIgnore
     private List<Stats> stats = new ArrayList<>();
 
+    @Column(name = "double_wicket", nullable = false)
+    private boolean doubleWicket = false;
+
 
 }

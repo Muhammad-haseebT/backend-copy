@@ -44,4 +44,6 @@ public class MatchDTO {
     // FIX: format for Ludo ("1v1"/"2v2") and Chess ("1v1"/"2v2")
     // Saved to DB at match start, read back when match is LIVE/COMPLETED
     private String matchFormat;
+    private String commentatorUsername;
+    private boolean doubleWicket = false;
 }

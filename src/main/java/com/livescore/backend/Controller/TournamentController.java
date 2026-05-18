@@ -48,6 +48,12 @@ public class TournamentController {
         return tournamentService.getTournamentByName();
     }
 
+    @GetMapping("/tournament/{sportId}/{seasonId}")
+    public ResponseEntity<?> getTournaments(@PathVariable Long sportId, @PathVariable Long seasonId) {
+        return tournamentService.getTournamentsBySportIdAndSeasonId(sportId,seasonId);
+    }
+
+
 
 
 }

@@ -104,6 +104,7 @@ public class TournamentService {
         tournament1.setPlayerType(tournament.getPlayerType());
         tournament1.setTournamentType(tournament.getTournamentType());
         tournament1.setTournamentStage(tournament.getTournamentStage());
+        tournament1.setDoubleWicket(tournament.isDoubleWicket());
 
        tournamentInterface.save(tournament1);
 
@@ -231,6 +232,11 @@ public class TournamentService {
         }
 
 
+        return ResponseEntity.ok(t);
+    }
+
+    public ResponseEntity<?> getTournamentsBySportIdAndSeasonId(Long sportId, Long seasonId) {
+        List<Tournament> t=tournamentInterface.findBySeasonIdAndSportName(seasonId,sportId);
         return ResponseEntity.ok(t);
     }
 }

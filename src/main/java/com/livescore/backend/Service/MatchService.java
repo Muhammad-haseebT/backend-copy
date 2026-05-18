@@ -106,6 +106,7 @@ public class MatchService {
         match.setTime(matchDTO.getTime());
         match.setOvers(matchDTO.getOvers());
         match.setSets(matchDTO.getSets());
+        match.setCommentatorUsername(matchDTO.getCommentatorUsername());
     }
 
     // -------------------- Public API --------------------
@@ -120,7 +121,19 @@ public class MatchService {
         if (validation != null) return validation;
         Match match = new Match();
         applyMatchDTO(match, matchDTO);
+        Tournament t = tournamentInterface.findById(matchDTO.getTournamentId()).orElse(null);
+        if (t != null) match.setDoubleWicket(t.isDoubleWicket());
         matchInterface.save(match);
+        
+        if (match.getCommentatorUsername() != null && !match.getCommentatorUsername().isBlank()) {
+            accountInterface.findActiveByUsername(match.getCommentatorUsername()).ifPresent(commAccount -> {
+                String commTitle = "Commentary Assignment";
+                String team1Name = match.getTeam1() != null ? match.getTeam1().getName() : "TBD";
+                String team2Name = match.getTeam2() != null ? match.getTeam2().getName() : "TBD";
+                String commMsg = "You are assigned as commentator for " + team1Name + " vs " + team2Name;
+                notificationService.createNotification(commAccount, commTitle, commMsg, NotificationType.MATCH_REMINDER);
+            });
+        }
         
         if (match.getTeam1() != null && match.getTeam2() != null) {
             String matchTitle = "Match Reminder 🏏";
@@ -487,7 +500,8 @@ public class MatchService {
 
         // FIX: include matchFormat so frontend can restore ludoFormat / chessFormat
         matchDTO.setMatchFormat(match.getMatchFormat());
-
+        matchDTO.setCommentatorUsername(match.getCommentatorUsername());
+        matchDTO.setDoubleWicket(match.isDoubleWicket());
         if (match.getTossWinner() != null)
             matchDTO.setTossWinnerId(match.getTossWinner().getId());
 

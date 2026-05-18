@@ -133,9 +133,9 @@ public class CricketScoringService implements ScoringServiceInterface {
             PlayerStatDTO nonStrikerDto = new PlayerStatDTO();
             PlayerStatDTO bowlerDto    = new PlayerStatDTO();
 
-            PlayerInnings batsman    = state.getStriker() != null ? playerInningsInterface.findByInnings_IdAndPlayer_Id(state.getInnings().getId(), state.getStriker().getId()) : null;
-            PlayerInnings bowler     = state.getBowler() != null ? playerInningsInterface.findByInnings_IdAndPlayer_Id(state.getInnings().getId(), state.getBowler().getId()) : null;
-            PlayerInnings nonStriker = state.getNonStriker() != null ? playerInningsInterface.findByInnings_IdAndPlayer_Id(state.getInnings().getId(), state.getNonStriker().getId()) : null;
+            PlayerInnings batsman    = state.getStriker() != null ? playerInningsInterface.findFirstByInnings_IdAndPlayer_Id(state.getInnings().getId(), state.getStriker().getId()) : null;
+            PlayerInnings bowler     = state.getBowler() != null ? playerInningsInterface.findFirstByInnings_IdAndPlayer_Id(state.getInnings().getId(), state.getBowler().getId()) : null;
+            PlayerInnings nonStriker = state.getNonStriker() != null ? playerInningsInterface.findFirstByInnings_IdAndPlayer_Id(state.getInnings().getId(), state.getNonStriker().getId()) : null;
 
             if (batsman != null && batsman.getPlayer() != null) {
                 scoreDTO.setBatsmanId(batsman.getPlayer().getId());
@@ -193,9 +193,9 @@ public class CricketScoringService implements ScoringServiceInterface {
                     // ✅ FIX: target <= 0 matlab jeet gaye, innings over
                     boolean inningsOver = scoreDTO.getWickets() == 10
                             || balls >= maxBalls
-                            || scoreDTO.getTarget() <= 0;  // ← WAS: <= 1
+                            || (!state.getInnings().getMatch().isDoubleWicket() && scoreDTO.getTarget() <= 0);  // ← WAS: <= 1
                     if (inningsOver) {
-                        if (scoreDTO.getTarget() == 1) {
+                        if (!state.getInnings().getMatch().isDoubleWicket() && scoreDTO.getTarget() == 1) {
                             scoreDTO.setComment("Super_Over"); // TIE — innings khatam aur score equal
                         } else {
                             scoreDTO.setComment("End_Innings"); // WIN or LOSS
@@ -213,9 +213,9 @@ public class CricketScoringService implements ScoringServiceInterface {
                     // ✅ FIX: same — innings khatam tab hi decide karo
                     boolean inningsOver = scoreDTO.getWickets() == 10
                             || balls >= maxBalls
-                            || scoreDTO.getTarget() <= 0;  // ← WAS: <= 1
+                            || (!state.getInnings().getMatch().isDoubleWicket() && scoreDTO.getTarget() <= 0);  // ← WAS: <= 1
                     if (inningsOver) {
-                        if (scoreDTO.getTarget() == 1) {
+                        if (!state.getInnings().getMatch().isDoubleWicket() && scoreDTO.getTarget() == 1) {
                             scoreDTO.setComment("Super_Over"); // Another SO tie
                         } else {
                             scoreDTO.setComment("End_Innings");
@@ -284,6 +284,7 @@ public class CricketScoringService implements ScoringServiceInterface {
             scoreDTO.setAvailableBowlers(java.util.Collections.emptyList());
         }
         scoreDTO.setMatchEnd(state.getMatchEnd());
+
         return scoreDTO;
     }
 
@@ -296,9 +297,9 @@ public class CricketScoringService implements ScoringServiceInterface {
         }
 
         MatchState m = matchStateInterface.findByInnings_Id(inningsId);
-        PlayerInnings batsman = playerInningsInterface.findByInnings_IdAndPlayer_Id(inningsId, cb.getBatsman().getId());
-        PlayerInnings nonStriker = playerInningsInterface.findByInnings_IdAndPlayer_Id(inningsId, cb.getNonStriker().getId());
-        PlayerInnings bowler = playerInningsInterface.findByInnings_IdAndPlayer_Id(inningsId, cb.getBowler().getId());
+        PlayerInnings batsman = playerInningsInterface.findFirstByInnings_IdAndPlayer_Id(inningsId, cb.getBatsman().getId());
+        PlayerInnings nonStriker = playerInningsInterface.findFirstByInnings_IdAndPlayer_Id(inningsId, cb.getNonStriker().getId());
+        PlayerInnings bowler = playerInningsInterface.findFirstByInnings_IdAndPlayer_Id(inningsId, cb.getBowler().getId());
 
 
         // grab IDs BEFORE delete for stats recalculation
@@ -353,6 +354,37 @@ public class CricketScoringService implements ScoringServiceInterface {
 
                 break;
 
+            case "noball_runout": {
+                m.setExtras(m.getExtras() - 1);
+                batsman.setRuns(batsman.getRuns() - r);
+                batsman.setBallsFaced(batsman.getBallsFaced() - 1);
+                bowler.setRunsConceded(bowler.getRunsConceded() - r - 1);
+                if (r == 4) batsman.setFour(batsman.getFour() - 1);
+                if (r == 6) batsman.setSixes(batsman.getSixes() - 1);
+                batsman.setRr(batsman.getBallsFaced() > 0 ? (double) batsman.getRuns() / batsman.getBallsFaced() : 0);
+                bowler.setEco(bowler.getBallsBowled() > 0 ? (double) bowler.getRunsConceded() / bowler.getBallsBowled() : 0);
+                m.setRuns(m.getRuns() - r - 1);
+                if (a) m.setTarget(m.getTarget() - r - 1);
+                else m.setTarget(m.getTarget() + r + 1);
+                // undo wicket
+                m.setWickets(m.getWickets() - 1);
+                m.setStriker(cb.getBatsman());
+                m.setNonStriker(cb.getNonStriker());
+                // undo double wicket penalty
+                if (cb.getMatch().isDoubleWicket()) {
+                    m.setRuns(m.getRuns() + 2);
+                    if (a) m.setTarget(m.getTarget() + 2);
+                    else m.setTarget(m.getTarget() - 2);
+                }
+                // un-dismiss out player
+                Player undoneOut = cb.getOutPlayer();
+                if (undoneOut != null) {
+                    PlayerInnings outPI = playerInningsInterface.findFirstByInnings_IdAndPlayer_Id(cb.getInnings().getId(), undoneOut.getId());
+                    if (outPI != null) { outPI.setDismissed(false); playerInningsInterface.save(outPI); }
+                }
+                break;
+            }
+
             case "noball":
                 m.setExtras(m.getExtras() - 1);
                 batsman.setRuns(batsman.getRuns() - r);
@@ -387,12 +419,20 @@ public class CricketScoringService implements ScoringServiceInterface {
 
             case "wicket":
                 handleUndoWicket(m, batsman, bowler, nonStriker, cb);
-                if(a)
+                // ── Double Wicket undo: +2 wapis karo ────────────────────────
+                if (cb.getMatch().isDoubleWicket()) {
+                    m.setRuns(m.getRuns() + 2);
+                    if (a) {  // first innings: target bhi +2
+                        m.setTarget(m.getTarget() + 2);
+                    } else {  // second innings: target -2
+                        m.setTarget(m.getTarget() - 2);
+                    }
+                }
+                // Runs on ball ka target undo (existing logic)
+                if (a)
                     m.setTarget(m.getTarget() - r);
                 else
                     m.setTarget(m.getTarget() + r);
-
-
                 break;
             case "penalty":
                 m.setRuns(m.getRuns() - r);
@@ -405,9 +445,11 @@ public class CricketScoringService implements ScoringServiceInterface {
         }
 
         // restore striker/nonStriker/bowler on MatchState
-        if (!cb.getEventType().equals("wicket")) {
+        if (!cb.getEventType().equals("wicket") && !cb.getEventType().equals("noball_runout")) {
             m.setStriker(batsman.getPlayer());
             m.setNonStriker(nonStriker.getPlayer());
+            m.setBowler(bowler.getPlayer());
+        } else {
             m.setBowler(bowler.getPlayer());
         }
 
@@ -466,13 +508,18 @@ public class CricketScoringService implements ScoringServiceInterface {
             case "retired":
             case "mankad":
                 m.setWickets(m.getWickets() - 1);
+
+                Player undoStriker;
+                Player undoNonStriker;
                 if (cb.getBatsman().getId().equals(cb.getOutPlayer().getId())) {
-                    m.setStriker(cb.getOutPlayer());
-                    m.setNonStriker(cb.getNonStriker());
+                    undoStriker    = cb.getOutPlayer();
+                    undoNonStriker = cb.getNonStriker();
                 } else {
-                    m.setStriker(cb.getBatsman());
-                    m.setNonStriker(cb.getOutPlayer());
+                    undoStriker    = cb.getBatsman();
+                    undoNonStriker = cb.getOutPlayer();
                 }
+                m.setStriker(undoStriker);
+                m.setNonStriker(undoNonStriker);
                 if (cb.getDismissalType().equalsIgnoreCase("runout"))
                     batsman.setRuns(batsman.getRuns() - cb.getRuns());
                 batsman.setBallsFaced(batsman.getBallsFaced());
@@ -488,7 +535,7 @@ public class CricketScoringService implements ScoringServiceInterface {
         Player undoneOutPlayer = cb.getOutPlayer();
         if (undoneOutPlayer != null) {
             PlayerInnings outPI = playerInningsInterface
-                    .findByInnings_IdAndPlayer_Id(
+                    .findFirstByInnings_IdAndPlayer_Id(
                             cb.getInnings().getId(), undoneOutPlayer.getId());
             if (outPI != null) {
                 outPI.setDismissed(false);
@@ -515,14 +562,14 @@ public class CricketScoringService implements ScoringServiceInterface {
             Long inPlayerId = ((Number) body.get("inPlayerId")).longValue();
             Long teamId = ((Number) body.get("teamId")).longValue();
 
-            PlayerInnings outPI = playerInningsInterface.findByInnings_IdAndPlayer_Id(inningsId, outPlayerId);
+            PlayerInnings outPI = playerInningsInterface.findFirstByInnings_IdAndPlayer_Id(inningsId, outPlayerId);
             if (outPI != null) {
                 outPI.setDismissed(true);
                 outPI.setDismissalType("retired hurt");
                 playerInningsInterface.save(outPI);
             }
 
-            PlayerInnings inPI = playerInningsInterface.findByInnings_IdAndPlayer_Id(inningsId, inPlayerId);
+            PlayerInnings inPI = playerInningsInterface.findFirstByInnings_IdAndPlayer_Id(inningsId, inPlayerId);
             if (inPI == null) {
                 inPI = new PlayerInnings();
                 inPI.setInnings(cricketInningsInterface.findById(inningsId).get());
@@ -620,9 +667,9 @@ public class CricketScoringService implements ScoringServiceInterface {
         CricketInnings ci  = cricketInningsInterface.findById(score.getInningsId()).get();
         MatchState m       = matchStateInterface.findByInnings_Id(score.getInningsId());
 
-        PlayerInnings batsman    = playerInningsInterface.findByInnings_IdAndPlayer_Id(score.getInningsId(), score.getBatsmanId());
-        PlayerInnings bowler     = playerInningsInterface.findByInnings_IdAndPlayer_Id(score.getInningsId(), score.getBowlerId());
-        PlayerInnings nonStriker = playerInningsInterface.findByInnings_IdAndPlayer_Id(score.getInningsId(), score.getNonStrikerId());
+        PlayerInnings batsman    = playerInningsInterface.findFirstByInnings_IdAndPlayer_Id(score.getInningsId(), score.getBatsmanId());
+        PlayerInnings bowler     = playerInningsInterface.findFirstByInnings_IdAndPlayer_Id(score.getInningsId(), score.getBowlerId());
+        PlayerInnings nonStriker = playerInningsInterface.findFirstByInnings_IdAndPlayer_Id(score.getInningsId(), score.getNonStrikerId());
 
         if (m == null) m = new MatchState();
         if (batsman == null)    batsman = new PlayerInnings();
@@ -638,6 +685,10 @@ public class CricketScoringService implements ScoringServiceInterface {
         bowler.setInnings(ci);
         nonStriker.setInnings(ci);
 
+        if (batsman.getId() == 0) batsman = playerInningsInterface.save(batsman);
+        if (bowler.getId() == 0) bowler = playerInningsInterface.save(bowler);
+        if (nonStriker.getId() == 0) nonStriker = playerInningsInterface.save(nonStriker);
+
         if (score.getDismissalType() != null) {
             score.setDismissalType(score.getDismissalType().replace(" ", ""));
         }
@@ -647,20 +698,30 @@ public class CricketScoringService implements ScoringServiceInterface {
             m.setStriker(batsmanPlayer);
             m.setNonStriker(nonStrikerPlayer);
         } else {
-            if (Objects.equals(score.getOutPlayerId(), score.getBatsmanId())) {
-                m.setStriker(newPlayer);
-                m.setNonStriker(nonStrikerPlayer);
+            if (newPlayer != null) {
+                // Normal case: replacement batsman was selected
+                if (Objects.equals(score.getOutPlayerId(), score.getBatsmanId())) {
+                    m.setStriker(newPlayer);
+                    m.setNonStriker(nonStrikerPlayer);
+                } else {
+                    m.setStriker(batsmanPlayer);
+                    m.setNonStriker(newPlayer);
+                }
+                PlayerInnings existingNew = playerInningsInterface
+                        .findFirstByInnings_IdAndPlayer_Id(score.getInningsId(), newPlayer.getId());
+                if (existingNew == null) {
+                    PlayerInnings newPI = new PlayerInnings();
+                    newPI.setPlayer(newPlayer);
+                    newPI.setInnings(ci);
+                    playerInningsInterface.save(newPI);
+                }
             } else {
+                // Double-wicket / no replacement: keep existing batsmen on crease
+                // The out player is dismissed but the penalty runs are deducted by
+                // handleNormalWickets → match.isDoubleWicket() block.
+                // Striker/NonStriker stay as they were (batsmanPlayer / nonStrikerPlayer).
                 m.setStriker(batsmanPlayer);
-                m.setNonStriker(newPlayer);
-            }
-            PlayerInnings existingNew = playerInningsInterface
-                    .findByInnings_IdAndPlayer_Id(score.getInningsId(), newPlayer.getId());
-            if (existingNew == null) {
-                PlayerInnings newPI = new PlayerInnings();
-                newPI.setPlayer(newPlayer);
-                newPI.setInnings(ci);
-                playerInningsInterface.save(newPI);
+                m.setNonStriker(nonStrikerPlayer);
             }
         }
 
@@ -681,9 +742,9 @@ public class CricketScoringService implements ScoringServiceInterface {
 // ── Playing bench: mark dismissed player ─────────────────────────
 // When a wicket falls, mark the out player's PlayerInnings as dismissed.
 // convertToScoreDTO will then exclude them from availableBatters.
-        if (outPlayer != null && "wicket".equalsIgnoreCase(score.getEventType())) {
+        if (outPlayer != null && ("wicket".equalsIgnoreCase(score.getEventType()) || "noball_runout".equalsIgnoreCase(score.getEventType()))) {
             PlayerInnings outPI = playerInningsInterface
-                    .findByInnings_IdAndPlayer_Id(score.getInningsId(), outPlayer.getId());
+                    .findFirstByInnings_IdAndPlayer_Id(score.getInningsId(), outPlayer.getId());
             if (outPI == null) {
                 outPI = new PlayerInnings();
                 outPI.setPlayer(outPlayer);
@@ -741,6 +802,55 @@ public class CricketScoringService implements ScoringServiceInterface {
             case "wicket":
                 handleWickets(score, m, c, batsman, bowler, ctx);
                 break;
+
+            case "noball_runout": {
+                // 1. No Ball runs (same as noball handler)
+                int nbRuns = Integer.parseInt(score.getEvent());
+                bowler.setRunsConceded(bowler.getRunsConceded() + nbRuns + 1);
+                bowler.setEco(bowler.getBallsBowled() > 0 ? (double) bowler.getRunsConceded() / bowler.getBallsBowled() : 0);
+                m.setExtras(m.getExtras() + 1);
+                m.setRuns(m.getRuns() + nbRuns + 1);
+                batsman.setRuns(batsman.getRuns() + nbRuns);
+                batsman.setBallsFaced(batsman.getBallsFaced() + 1);
+                batsman.setRr(batsman.getBallsFaced() > 0 ? (double) batsman.getRuns() / batsman.getBallsFaced() : 0);
+                if (nbRuns == 4) batsman.setFour(batsman.getFour() + 1);
+                else if (nbRuns == 6) batsman.setSixes(batsman.getSixes() + 1);
+                if (score.isFirstInnings()) {
+                    m.setTarget(m.getTarget() + nbRuns + 1);
+                } else {
+                    m.setTarget(m.getTarget() - nbRuns - 1);
+                }
+                // NO incrementBall() — no ball does not count
+                c.setExtraType("noball");
+                c.setExtra(1);
+                c.setLegalDelivery(false);  // ← key: ball not counted
+                c.setRuns(nbRuns);
+                c.setBatsman(ctx.batsman);
+                c.setBowler(ctx.bowler);
+                c.setNonStriker(ctx.nonStriker);
+                c.setMatch(ctx.match);
+                c.setBallNumber(m.getBalls());
+                c.setOverNumber(m.getOvers());
+
+                // 2. Run Out dismissal on top of no ball
+                m.setWickets(m.getWickets() + 1);
+                c.setDismissalType("runout");
+                c.setOutPlayer(ctx.outPlayer);
+                if (ctx.fielder != null) c.setFielder(ctx.fielder);
+                c.setEventType("noball_runout");
+
+                // Double wicket penalty if applicable
+                if (ctx.match.isDoubleWicket()) {
+                    m.setRuns(m.getRuns() - 2);
+                    if (score.isFirstInnings()) m.setTarget(m.getTarget() - 2);
+                    else m.setTarget(m.getTarget() + 2);
+                }
+
+                int tb = Math.max(1, (m.getOvers() * 6) + m.getBalls());
+                m.setCrr((double) m.getRuns() * 6 / tb);
+                if (!score.isFirstInnings()) m.setRequiredRR((double) m.getTarget() * 6 / tb);
+                break;
+            }
 
             // ── PENALTY ───────────────────────────────────────────────
             case "penalty": {
@@ -961,45 +1071,54 @@ public class CricketScoringService implements ScoringServiceInterface {
         c.setDismissalType(score.getDismissalType());
         c.setBatsman(batsman.getPlayer());
         c.setNonStriker(ctx.nonStriker);
-        c.setOutPlayer(ctx.outPlayer);  // ✅ No DB call
+        c.setOutPlayer(ctx.outPlayer);
         c.setBowler(bowler.getPlayer());
         if (ctx.fielder != null)
-            c.setFielder(ctx.fielder);  // ✅ No DB call
+            c.setFielder(ctx.fielder);
         c.setRuns(score.getRunsOnThisBall());
         c.setLegalDelivery(true);
         if (!r.equals("retired") && !r.equals("mankad")) {
             incrementBall(m);
             bowler.setBallsBowled(bowler.getBallsBowled() + 1);
             bowler.setWickets(bowler.getWickets() + 1);
-
         }
         if (score.getDismissalType().equalsIgnoreCase("runout")) {
             batsman.setRuns(batsman.getRuns() + score.getRunsOnThisBall());
         }
         c.setBallNumber(m.getBalls());
         c.setOverNumber(m.getOvers());
-        c.setMatch(ctx.match);       // ✅ No DB call
-        c.setInnings(ctx.innings);   // ✅ No DB call
+        c.setMatch(ctx.match);
+        c.setInnings(ctx.innings);
         c.setEventType("wicket");
 
         m.setWickets(m.getWickets() + 1);
-        if (m.getWickets() == 10) {
-            m.setStatus("WICKET-OUT");
-        }
+        if (m.getWickets() == 10) m.setStatus("WICKET-OUT");
+
         m.setRuns(m.getRuns() + score.getRunsOnThisBall());
         if (score.isFirstInnings()) {
             m.setTarget(m.getTarget() + score.getRunsOnThisBall());
         } else {
             m.setTarget(m.getTarget() - score.getRunsOnThisBall());
-            m.setRequiredRR((double) m.getTarget() * 6 / ((m.getOvers() * 6) + m.getBalls()));
         }
         bowler.setRunsConceded(bowler.getRunsConceded() + score.getRunsOnThisBall());
 
+        // ── Double Wicket penalty: -2 runs, target adjust ─────────────
+        if (ctx.match.isDoubleWicket()) {
+            m.setRuns(m.getRuns() - 2);
+            if (score.isFirstInnings()) {
+                m.setTarget(m.getTarget() - 2);
+            } else {
+                m.setTarget(m.getTarget() + 2);
+            }
+        }
 
-        m.setCrr((double) m.getRuns() * 6 / ((m.getOvers() * 6) + m.getBalls()));
-
+        // ✅ CRR + RequiredRR — sirf ek baar, sab adjustments ke baad
+        int tb = Math.max(1, (m.getOvers() * 6) + m.getBalls());
+        m.setCrr((double) m.getRuns() * 6 / tb);
+        if (!score.isFirstInnings()) {
+            m.setRequiredRR((double) m.getTarget() * 6 / tb);
+        }
     }
-
     private void addScore(ScoreDTO score, MatchState m, CricketBall c,
                           PlayerInnings batsman, PlayerInnings bowler, BallContext ctx) {
         int r = Integer.parseInt(score.getEvent());

@@ -160,4 +160,10 @@ public class Match {
 
     @Column(name = "half_duration_mins")
     private Integer halfDurationMins;
+
+    @Column(name = "commentator_username", nullable = true)
+    private String commentatorUsername;
+
+    @Column(name = "double_wicket", nullable = false)
+    private boolean doubleWicket = false;
 }

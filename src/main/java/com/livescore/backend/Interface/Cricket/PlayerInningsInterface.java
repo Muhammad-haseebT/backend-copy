@@ -7,7 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import java.util.List;
 
 public interface PlayerInningsInterface extends JpaRepository<PlayerInnings, Long> {
-    PlayerInnings findByInnings_IdAndPlayer_Id(Long inningsId, Long bowlerId);
+    PlayerInnings findFirstByInnings_IdAndPlayer_Id(Long inningsId, Long bowlerId);
 
 
     @Query("SELECT pi FROM PlayerInnings pi WHERE pi.innings.match.id = :matchId and pi.innings.team.id=:teamId")
