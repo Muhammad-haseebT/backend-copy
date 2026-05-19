@@ -40,6 +40,7 @@ public class MatchDTO {
     private List<Long> team1PlayingIds;
     private List<Long> team2PlayingIds;
     private Integer halfDurationMins;
+    private Integer periodDurationMins;
 
     // FIX: format for Ludo ("1v1"/"2v2") and Chess ("1v1"/"2v2")
     // Saved to DB at match start, read back when match is LIVE/COMPLETED

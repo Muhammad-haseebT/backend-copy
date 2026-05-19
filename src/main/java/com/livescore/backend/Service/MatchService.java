@@ -2,8 +2,10 @@ package com.livescore.backend.Service;
 
 import com.livescore.backend.DTO.MatchDTO;
 import com.livescore.backend.Entity.*;
+import com.livescore.backend.Entity.Hockey.HockeyMatchState;
 import com.livescore.backend.Interface.*;
 import com.livescore.backend.Interface.Cricket.MatchStateInterface;
+import com.livescore.backend.Sport.Hockey.HockeyMatchStateInterface;
 import com.livescore.backend.Util.Constants;
 import com.livescore.backend.Entity.NotificationType;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -52,6 +54,8 @@ public class MatchService {
     private PtsTableInterface ptsTableInterface;
     @Autowired
     private NotificationService notificationService;
+    @Autowired
+    private HockeyMatchStateInterface hockeyMatchStateInterface;
 
 
 
@@ -278,6 +282,11 @@ public class MatchService {
             String fmt = (m.getMatchFormat() != null && !m.getMatchFormat().isBlank())
                     ? m.getMatchFormat().toLowerCase() : "1v1";
             match.setMatchFormat(fmt);
+        } else if (s.getName().equalsIgnoreCase("Hockey")) {
+            // Hockey has 3 periods; store period duration on the match
+            match.setHalfDurationMins(
+                m.getPeriodDurationMins() != null ? m.getPeriodDurationMins() : 15
+            );
         }
 
         // ── Cricket innings setup ─────────────────────────────────────
@@ -316,6 +325,32 @@ public class MatchService {
 
         matchInterface.save(match);
         
+        // ── Hockey match state init ──────────────────────────────────
+        if (s.getName().equalsIgnoreCase("Hockey")) {
+            HockeyMatchState hms = new HockeyMatchState();
+            hms.setMatch(match);
+            hms.setCurrentPeriod(1);
+            hms.setStatus("LIVE");
+            hms.setPeriodStartTime(System.currentTimeMillis());
+            hms.setPeriodDurationMinutes(
+                m.getPeriodDurationMins() != null ? m.getPeriodDurationMins() : 15
+            );
+            // Save playing IDs to on-field lists
+            if (m.getTeam1PlayingIds() != null && !m.getTeam1PlayingIds().isEmpty()) {
+                hms.setTeam1OnFieldIds(
+                    m.getTeam1PlayingIds().stream()
+                     .map(String::valueOf).collect(Collectors.joining(","))
+                );
+            }
+            if (m.getTeam2PlayingIds() != null && !m.getTeam2PlayingIds().isEmpty()) {
+                hms.setTeam2OnFieldIds(
+                    m.getTeam2PlayingIds().stream()
+                     .map(String::valueOf).collect(Collectors.joining(","))
+                );
+            }
+            hockeyMatchStateInterface.save(hms);
+        }
+
         if (match.getTeam1() != null && match.getTeam2() != null) {
             String matchTitle = "Match Started! 🔴 LIVE";
             String matchMsg = match.getTeam1().getName() + " vs " + match.getTeam2().getName() + " is now LIVE!";

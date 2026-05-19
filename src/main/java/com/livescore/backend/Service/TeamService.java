@@ -123,13 +123,12 @@ public class TeamService {
         return ResponseEntity.notFound().build();
     }
 
-    @Cacheable(value = "teams", key = "#tid")
+    @Cacheable(value = "teams")
     public ResponseEntity<?> getAllTeams() {
         return ResponseEntity.ok(teamInterface.findAll());
     }
 
-    @Cacheable(value = "teamById", key = "#tid")
-
+    @Cacheable(value = "teamById", key = "#id")
     public ResponseEntity<?> getTeamById(Long id) {
         return teamInterface.findById(id)
                 .map(ResponseEntity::ok)

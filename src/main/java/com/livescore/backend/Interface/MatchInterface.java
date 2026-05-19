@@ -185,6 +185,19 @@ public interface MatchInterface extends JpaRepository<Match,Long> {
 """, nativeQuery = true)
     int findChessMatchesByPlayer(Long playerId);
 
+    @Query(value = """
+    SELECT COUNT(DISTINCT m.id) 
+    FROM match m
+    JOIN tournament t ON m.tournament_id = t.id
+    JOIN sports s ON t.sports_id = s.id
+    JOIN player_request pr ON (pr.team_id = m.team1_id OR pr.team_id = m.team2_id)
+    WHERE m.status = 'COMPLETED'
+    AND LOWER(s.name) LIKE LOWER('%hockey%')
+    AND pr.player_id = ?1
+    AND pr.status = 'APPROVED'
+""", nativeQuery = true)
+    int findHockeyMatchesByPlayer(Long playerId);
+
 
 
     @Query("select m.cricketInnings from Match m where m.id=:id")

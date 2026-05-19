@@ -685,6 +685,7 @@ public class StatsService {
         int tugofwar    = matchRepo.findTableTugOfWarMatchesByPlayer(playerId);
         int ludo       = matchRepo.findLudoMatchesByPlayer(playerId);
         int chess      = matchRepo.findChessMatchesByPlayer(playerId);
+        int hockey     = matchRepo.findHockeyMatchesByPlayer(playerId);
 
         dto.setCricketMatchesPlayed(cricket);
         dto.setFutsalMatchesPlayed(futsal);
@@ -694,6 +695,7 @@ public class StatsService {
         dto.setTugOfWarMatchesPlayed(tugofwar);
         dto.setLudoMatchesPlayed(ludo);
         dto.setChessMatchesPlayed(chess);
+        dto.setHockeyMatchesPlayed(hockey);
         dto.setMatchesPlayed(switch (sport.toLowerCase().trim()) {
             case "futsal"                    -> futsal;
             case "volleyball"                -> volleyball;
@@ -702,6 +704,7 @@ public class StatsService {
             case "tug of war", "tugofwar"    -> tugofwar;
             case "ludo"                       -> ludo;
             case "chess"                      -> chess;
+            case "hockey"                     -> hockey;
             default                          -> cricket;
         });
     }

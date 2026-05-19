@@ -23,6 +23,8 @@ public class WebSocketConfig implements WebSocketConfigurer {
                 .setAllowedOriginPatterns("*");
         registry.addHandler(liveChatHandler, "/ws/chat")
                 .setAllowedOriginPatterns("*");
-
+        // Hockey uses the same LiveScoringHandler — sport resolved from match.tournament.sport
+        registry.addHandler(liveScoringHandler, "/ws/hockey")
+                .setAllowedOriginPatterns("*");
     }
 }

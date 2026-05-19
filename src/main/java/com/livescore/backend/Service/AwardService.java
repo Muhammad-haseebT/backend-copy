@@ -63,6 +63,7 @@ public class AwardService {
             case "table tennis", "tabletennis" -> buildTableTennisStats(dto, awards, allStats); // fixes typo warning too
             case "ludo"                       -> buildLudoStats(dto, awards, allStats);
             case "chess"                      -> buildChessStats(dto, awards, allStats);
+            case "hockey"                     -> buildHockeyStats(dto, awards, allStats);
             default                           -> buildCricketStats(dto, awards, allStats);
         }
 
@@ -84,6 +85,13 @@ public class AwardService {
     }
 
     private void buildFutsalStats(TournamentAwardsDTO dto, List<Award> awards, List<Stats> s) {
+        awards.stream().filter(a->"TOP_SCORER".equals(a.getAwardType())).findFirst().ifPresent(a->dto.setTopScorer(toAwardDTO(a)));
+        awards.stream().filter(a->"TOP_ASSIST".equals(a.getAwardType())).findFirst().ifPresent(a->dto.setTopAssist(toAwardDTO(a)));
+        dto.setTopGoalScorers(topN(s, Comparator.comparingInt(Stats::getGoals).reversed()));
+        dto.setTopAssisters(topN(s, Comparator.comparingInt(Stats::getAssists).reversed()));
+    }
+
+    private void buildHockeyStats(TournamentAwardsDTO dto, List<Award> awards, List<Stats> s) {
         awards.stream().filter(a->"TOP_SCORER".equals(a.getAwardType())).findFirst().ifPresent(a->dto.setTopScorer(toAwardDTO(a)));
         awards.stream().filter(a->"TOP_ASSIST".equals(a.getAwardType())).findFirst().ifPresent(a->dto.setTopAssist(toAwardDTO(a)));
         dto.setTopGoalScorers(topN(s, Comparator.comparingInt(Stats::getGoals).reversed()));
